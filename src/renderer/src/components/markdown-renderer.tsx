@@ -8,6 +8,7 @@ import remarkMath from 'remark-math'
 import { useContextMenu, buildCodeBlockContextMenu, buildLinkContextMenu } from './context-menu'
 import { CopyButton } from './copy-button'
 import { LineNumberedCode } from './line-numbered-code'
+import { normalizeMarkdownMath } from '../utils/markdown-math'
 import { splitReadTruncationNote } from '../message-grouping'
 import { looksLikeFilePath, openFileFromChat } from './chat-file-link'
 import { ErrorBoundary } from './error-boundary'
@@ -147,7 +148,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
           ),
         }}
       >
-        {content}
+        {normalizeMarkdownMath(content)}
       </ReactMarkdown>
       {ContextMenuComponent}
     </ErrorBoundary>
