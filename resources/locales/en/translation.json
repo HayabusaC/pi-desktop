@@ -1259,6 +1259,19 @@
     "contextSection": {
       "title": "Context Usage"
     },
+    "costBreakdown": {
+      "actualCost": "Final actual cost",
+      "cacheRead": "Cache read",
+      "cacheWrite": "Cache write",
+      "discountRate": "Discount rate",
+      "input": "Input / prompt",
+      "output": "Output / completion",
+      "preDiscount": "Before discount",
+      "reasoning": "Reasoning / internal"
+    },
+    "costBreakdownSection": {
+      "title": "Cost Breakdown"
+    },
     "errorCopied": "copied",
     "errorCopy": "copy",
     "extensionsSection": {
@@ -1281,6 +1294,13 @@
     },
     "promptTemplatesSection": {
       "title": "Prompt Templates"
+    },
+    "quota": {
+      "resetsAt": "Resets {{time}}",
+      "usedRemaining": "{{used}} used · {{remaining}} left"
+    },
+    "quotaSection": {
+      "title": "Coding Plan Quota"
     },
     "row": {
       "cost": "Cost",

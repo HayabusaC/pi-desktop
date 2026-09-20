@@ -15,6 +15,7 @@ import { readForkPointsCached } from '../omp-fork-points'
 import { mapWithConcurrency } from '../map-concurrent'
 import { readSessionLineage } from '../session-lineage-reader'
 import { trimGetMessagesResponse } from '../get-messages-trim'
+import { withSessionCostBreakdown } from '../session-cost-breakdown'
 import { activityStatsStore } from '../activity-stats'
 import type { SessionDeleteResult, SessionListItem, SessionRuntimeCloseResult, SessionRuntimeInfo } from '../../shared/ipc-contracts'
 import { IPC_CHANNELS } from '../../shared/ipc-contracts'
@@ -221,7 +222,18 @@ export function registerSessionHandlers(ctx: IpcContext): void {
   ipcMain.handle(IPC_CHANNELS.SESSION_GET_STATS, async () => {
     const pi = workspaceManager.getActivePiManager()
     if (!pi || pi.getStatus().status !== 'running') return null
-    return pi.sendCommand({ type: 'get_session_stats' })
+    const stats = await pi.sendCommand({ type: 'get_session_stats' })
+    try {
+      // get_session_stats exposes the final total but not per-bucket costs.
+      // Persisted assistant messages carry the provider's original usage/cost
+      // object, so aggregate those fields without consulting a price table.
+      const messages = await pi.sendCommand({ type: 'get_messages' })
+      return withSessionCostBreakdown(stats, messages)
+    } catch {
+      // Older engines may not expose messages in this mode. Keep their native
+      // stats response rather than making the whole dashboard fail.
+      return stats
+    }
   })
 
   ipcMain.handle(IPC_CHANNELS.SESSION_SET_NAME, async (_event, name: unknown) => {

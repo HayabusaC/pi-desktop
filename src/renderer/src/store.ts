@@ -26,6 +26,7 @@ import type {
   PiStartupPhase,
   SessionState,
   SessionStats,
+  ProviderQuota,
   SessionListItem,
   AppSettings,
   PiMessageStartEvent,
@@ -230,6 +231,7 @@ interface AppState {
   // Session
   sessionState: SessionState | null
   sessionStats: SessionStats | null
+  providerQuota: ProviderQuota | null
   sessionList: SessionListItem[]
   // Live Pi runtimes keyed by runtime id. Several can share one project cwd.
   sessionRuntimes: Record<string, SessionRuntimeInfo>
@@ -450,6 +452,7 @@ interface AppActions {
   reloadActiveSession: (options?: { refreshList?: boolean }) => Promise<void>
   refreshSessionState: () => Promise<void>
   refreshSessionStats: () => Promise<void>
+  refreshProviderQuota: () => Promise<void>
   refreshSessionList: () => Promise<void>
   setSessionName: (name: string) => Promise<void>
   loadForkMessages: () => Promise<void>
@@ -688,6 +691,7 @@ function enqueueAttachBackfill(get: () => AppState & AppActions): Promise<void> 
 let sessionListRefreshInFlight = false
 let sessionListRefreshQueued = false
 let sessionListRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let providerQuotaRequestGeneration = 0
 
 /**
  * Adopt an active-workspace change the main process made on its own: creating a
@@ -720,6 +724,7 @@ function adoptMainSideActivation(
     editorDirty: false,
     sessionState: null,
     sessionStats: null,
+    providerQuota: null,
     activeSessionRuntimeId: null,
     timelineEvents: [],
     piStatus: 'stopped',
@@ -876,6 +881,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   sessionState: null,
   sessionStats: null,
+  providerQuota: null,
   sessionList: [],
   sessionRuntimes: {},
   activeSessionRuntimeId: null,
@@ -1304,6 +1310,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         currentView: 'chat',
         sessionState: null,
         sessionStats: null,
+        providerQuota: null,
         // A new session has no history to wait for. Show the empty chat
         // immediately; the runtime event hydrates its generated session path
         // when Pi is ready, while piStatus still communicates startup.
@@ -1366,6 +1373,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         currentView: 'chat',
         sessionState: null,
         sessionStats: null,
+        providerQuota: null,
         sessionLoading: true,
         activeSessionRuntimeId: runtime.runtimeId,
         piStatus: runtime.status === 'stopped' ? 'starting' : runtime.status,
@@ -1435,6 +1443,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           set({
             sessionState: null,
             sessionStats: null,
+            providerQuota: null,
             sessionLoading: false,
             activeSessionRuntimeId: null,
             piStatus: 'stopped',
@@ -1497,6 +1506,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           sessionLoading: true,
           sessionState: null,
           sessionStats: null,
+          providerQuota: null,
           activeSessionRuntimeId: null,
           // The dialog belongs to the runtime being left. Main retains its
           // origin and replays it when the user switches back.
@@ -1647,6 +1657,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         const resp = response as { success?: boolean; data?: SessionState }
         if (resp.success && resp.data) {
           set({ sessionState: resp.data })
+          void get().refreshProviderQuota()
         }
       }
     } catch {
@@ -1665,6 +1676,22 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       }
     } catch {
       // Silent failure
+    }
+  },
+
+  refreshProviderQuota: async () => {
+    const generation = ++providerQuotaRequestGeneration
+    set({ providerQuota: null })
+    try {
+      const quota = await window.piDesktop.model.getProviderQuota()
+      if (generation === providerQuotaRequestGeneration) {
+        const activeProvider = get().sessionState?.model?.provider
+        set({ providerQuota: quota?.provider === activeProvider ? quota : null })
+      }
+    } catch {
+      if (generation === providerQuotaRequestGeneration) {
+        set({ providerQuota: null })
+      }
     }
   },
 
@@ -2080,6 +2107,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           timelineEvents: closeMostRecentRunning(state.timelineEvents, (e) => e.kind === 'agent-run', 'success'),
         }))
         get().refreshSessionStats()
+        get().refreshProviderQuota()
         get().addTimelineEvent({
           id: generateId(),
           type: 'system',
@@ -2591,6 +2619,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         activeWorkspace: workspace,
         sessionState: null,
         sessionStats: null,
+        providerQuota: null,
         extensionUiRequest: null,
         previewTarget: null,
         editorDirty: false,
@@ -2689,7 +2718,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       } else if (get().piStatus !== 'running') {
         // Idle workspace: the empty new-session view renders instantly. No
         // spinner, no process — Pi starts when the first prompt is sent.
-        set({ sessionState: null, sessionStats: null, sessionLoading: false })
+        set({ sessionState: null, sessionStats: null, providerQuota: null, sessionLoading: false })
       } else {
         // Stats only. Refreshing sessionState here races the follow-up
         // switchSession this flow contracts for: when the refresh lands

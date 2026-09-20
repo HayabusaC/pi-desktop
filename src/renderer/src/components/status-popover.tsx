@@ -5,7 +5,7 @@ import { processStatusLabel } from '../utils/process-status-label'
 import { useAppStore } from '../store'
 import { DEFAULT_AGENT_ENGINE_LABEL, agentEngineLabel } from '../../../shared/agent-engine-label'
 import { invocationToken } from '../../../shared/pi-command'
-import type { InstalledSkill } from '../../../shared/ipc-contracts'
+import type { InstalledSkill, ProviderQuotaWindow, SessionCostLine } from '../../../shared/ipc-contracts'
 import { clsx } from 'clsx'
 import {
   Activity,
@@ -23,6 +23,7 @@ import {
   Plug,
   FileText,
   BookOpen,
+  CreditCard,
 } from 'lucide-react'
 
 interface CommandInfo {
@@ -48,8 +49,23 @@ const SCOPE_KEYS = {
   cli: 'status.scope.cli',
 } as const satisfies Record<InstalledSkill['source'], string>
 
+function formatQuotaAmount(window: ProviderQuotaWindow, kind: 'used' | 'remaining', locale: string): string {
+  const fraction = kind === 'used' ? window.usedFraction : window.remainingFraction
+  if (fraction !== undefined) return `${(fraction * 100).toFixed(1)}%`
+  const value = kind === 'used' ? window.used : window.remaining
+  if (value === undefined) return '—'
+  return `${value.toLocaleString(locale)}${window.unit === 'percent' ? '%' : ''}`
+}
+
+function formatCostLine(line: SessionCostLine, locale: string): string {
+  const parts: string[] = []
+  if (line.tokens !== undefined) parts.push(`${line.tokens.toLocaleString(locale)} tokens`)
+  if (line.cost !== undefined) parts.push(`$${line.cost.toFixed(6)}`)
+  return parts.join(' · ')
+}
+
 export function StatusPopover(): React.JSX.Element {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [commands, setCommands] = useState<CommandInfo[]>([])
   const [skills, setSkills] = useState<InstalledSkill[]>([])
@@ -64,6 +80,7 @@ export function StatusPopover(): React.JSX.Element {
   const sessionState = useAppStore((state) => state.sessionState)
   const sessionList = useAppStore((state) => state.sessionList)
   const sessionStats = useAppStore((state) => state.sessionStats)
+  const providerQuota = useAppStore((state) => state.providerQuota)
   const activeWorkspace = useAppStore((state) => state.activeWorkspace)
   const compactContext = useAppStore((state) => state.compactContext)
   const isCompacting = sessionState?.isCompacting ?? false
@@ -224,6 +241,48 @@ export function StatusPopover(): React.JSX.Element {
               )}
             </StatusSection>
 
+            {providerQuota && providerQuota.windows.length > 0 && (
+              <StatusSection title={t('status.quotaSection.title')} icon={<CreditCard size={13} />}>
+                <StatusRow label={t('status.row.provider')} value={providerQuota.provider} />
+                {providerQuota.windows.map((window) => {
+                  const usedPercent = window.usedFraction === undefined
+                    ? null
+                    : Math.min(100, Math.max(0, window.usedFraction * 100))
+                  return (
+                    <div key={window.id} className="rounded-md bg-card/60 px-2 py-1.5">
+                      <div className="mb-1 flex items-center justify-between text-[11px]">
+                        <span className="font-medium text-secondary">{window.label}</span>
+                        <span className="tabular-nums text-dim">
+                          {t('status.quota.usedRemaining', {
+                            used: formatQuotaAmount(window, 'used', i18n.language),
+                            remaining: formatQuotaAmount(window, 'remaining', i18n.language),
+                          })}
+                        </span>
+                      </div>
+                      {usedPercent !== null && (
+                        <div className="mb-1 h-1.5 overflow-hidden rounded-full bg-surface">
+                          <div
+                            className={clsx(
+                              'h-full rounded-full',
+                              usedPercent >= 90 ? 'bg-error' : usedPercent >= 70 ? 'bg-warning' : 'bg-success'
+                            )}
+                            style={{ width: `${usedPercent}%` }}
+                          />
+                        </div>
+                      )}
+                      {window.resetsAt !== undefined && (
+                        <div className="text-[10px] text-faint">
+                          {t('status.quota.resetsAt', {
+                            time: new Date(window.resetsAt).toLocaleString(i18n.language),
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </StatusSection>
+            )}
+
             {/* Context & Tokens */}
             {sessionStats && (
               <StatusSection title={t('status.contextSection.title')} icon={<Layers size={13} />}>
@@ -259,7 +318,9 @@ export function StatusPopover(): React.JSX.Element {
                   </>
                 )}
                 <StatusRow label={t('status.row.messages')} value={String(sessionStats.totalMessages)} />
-                <StatusRow label={t('status.row.cost')} value={`$${sessionStats.cost.toFixed(4)}`} />
+                {!sessionStats.costBreakdown && (
+                  <StatusRow label={t('status.row.cost')} value={`$${sessionStats.cost.toFixed(4)}`} />
+                )}
                 <StatusRow
                   label={t('status.row.tokens')}
                   value={`${((sessionStats.tokens.input + sessionStats.tokens.output) / 1000).toFixed(1)}k`}
@@ -277,6 +338,35 @@ export function StatusPopover(): React.JSX.Element {
                   )}
                   {isCompacting ? t('status.compactButton.compacting') : t('status.compactButton.compact')}
                 </button>
+              </StatusSection>
+            )}
+
+            {sessionStats?.costBreakdown && (
+              <StatusSection title={t('status.costBreakdownSection.title')} icon={<CreditCard size={13} />}>
+                {sessionStats.costBreakdown.input && (
+                  <StatusRow label={t('status.costBreakdown.input')} value={formatCostLine(sessionStats.costBreakdown.input, i18n.language)} />
+                )}
+                {sessionStats.costBreakdown.output && (
+                  <StatusRow label={t('status.costBreakdown.output')} value={formatCostLine(sessionStats.costBreakdown.output, i18n.language)} />
+                )}
+                {sessionStats.costBreakdown.cacheRead && (
+                  <StatusRow label={t('status.costBreakdown.cacheRead')} value={formatCostLine(sessionStats.costBreakdown.cacheRead, i18n.language)} />
+                )}
+                {sessionStats.costBreakdown.cacheWrite && (
+                  <StatusRow label={t('status.costBreakdown.cacheWrite')} value={formatCostLine(sessionStats.costBreakdown.cacheWrite, i18n.language)} />
+                )}
+                {sessionStats.costBreakdown.reasoning && (
+                  <StatusRow label={t('status.costBreakdown.reasoning')} value={formatCostLine(sessionStats.costBreakdown.reasoning, i18n.language)} />
+                )}
+                {sessionStats.costBreakdown.preDiscountCost !== undefined && (
+                  <StatusRow label={t('status.costBreakdown.preDiscount')} value={`$${sessionStats.costBreakdown.preDiscountCost.toFixed(6)}`} />
+                )}
+                {sessionStats.costBreakdown.discountRate !== undefined && (
+                  <StatusRow label={t('status.costBreakdown.discountRate')} value={`${(sessionStats.costBreakdown.discountRate * 100).toFixed(1)}%`} />
+                )}
+                {sessionStats.costBreakdown.finalCost !== undefined && (
+                  <StatusRow label={t('status.costBreakdown.actualCost')} value={`$${sessionStats.costBreakdown.finalCost.toFixed(6)}`} />
+                )}
               </StatusSection>
             )}
 
@@ -405,6 +495,7 @@ export function StatusPopover(): React.JSX.Element {
             <button
               onClick={() => {
                 useAppStore.getState().refreshSessionStats()
+                useAppStore.getState().refreshProviderQuota()
               }}
               className="flex items-center gap-1 hover:text-muted transition-colors"
             >

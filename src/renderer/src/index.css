@@ -269,6 +269,15 @@
     border-radius: 8px;
   }
 
+  /* KaTeX display equations can be wider than a chat bubble. Keep the message
+     layout stable and let just the equation scroll horizontally. */
+  .markdown-body .katex-display {
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.125rem 0;
+  }
+
   .markdown-body strong {
     font-weight: 600;
     color: var(--color-primary);

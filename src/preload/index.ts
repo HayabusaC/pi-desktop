@@ -70,6 +70,7 @@ import type {
   GitConveyorPullRequestOptions,
   GitConveyorPullRequestResult,
   I18nEnvironment,
+  ProviderQuota,
 } from '../shared/ipc-contracts'
 import type { ThemeFile } from '../shared/theme/theme-file'
 import { IPC_CHANNELS } from '../shared/ipc-contracts'
@@ -126,6 +127,7 @@ interface PiDesktopAPI {
     set(provider: string, modelId: string): Promise<unknown>
     cycle(): Promise<unknown>
     listAvailable(): Promise<unknown>
+    getProviderQuota(): Promise<ProviderQuota | null>
   }
 
   // Thinking
@@ -399,6 +401,7 @@ const api: PiDesktopAPI = {
     set: (provider, modelId) => ipcRenderer.invoke(IPC_CHANNELS.MODEL_SET, provider, modelId),
     cycle: () => ipcRenderer.invoke(IPC_CHANNELS.MODEL_CYCLE),
     listAvailable: () => ipcRenderer.invoke(IPC_CHANNELS.MODEL_LIST_AVAILABLE),
+    getProviderQuota: () => ipcRenderer.invoke(IPC_CHANNELS.MODEL_GET_PROVIDER_QUOTA),
   },
 
   thinking: {

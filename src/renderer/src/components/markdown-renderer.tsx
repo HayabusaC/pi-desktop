@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
 import ReactMarkdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 import { useContextMenu, buildCodeBlockContextMenu, buildLinkContextMenu } from './context-menu'
 import { CopyButton } from './copy-button'
 import { LineNumberedCode } from './line-numbered-code'
@@ -23,7 +25,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps): React.JSX.
       fallback={<pre className="whitespace-pre-wrap break-words text-secondary">{content}</pre>}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           // Links — right-click for context menu
           a: ({ href, children, ...props }) => (

@@ -51,6 +51,7 @@ export const IPC_CHANNELS = {
   MODEL_SET: 'model:set',
   MODEL_CYCLE: 'model:cycle',
   MODEL_LIST_AVAILABLE: 'model:list-available',
+  MODEL_GET_PROVIDER_QUOTA: 'model:get-provider-quota',
   THINKING_SET_LEVEL: 'thinking:set-level',
   THINKING_CYCLE_LEVEL: 'thinking:cycle-level',
 
@@ -730,6 +731,29 @@ export interface ModelInfo {
   }
 }
 
+/** Provider-native subscription window for the active OAuth-backed model. */
+export interface ProviderQuotaWindow {
+  id: string
+  label: string
+  tier?: string
+  durationMs?: number
+  resetsAt?: number
+  used?: number
+  limit?: number
+  remaining?: number
+  unit: 'percent' | 'tokens' | 'requests' | 'credits' | 'usd' | 'minutes' | 'bytes' | 'unknown'
+  usedFraction?: number
+  remainingFraction?: number
+  status?: 'ok' | 'warning' | 'exhausted' | 'unknown'
+}
+
+/** Sanitized projection of the provider's native Coding Plan usage report. */
+export interface ProviderQuota {
+  provider: string
+  fetchedAt: number
+  windows: ProviderQuotaWindow[]
+}
+
 // ─── Session Types ──────────────────────────────────────────────────────────
 
 export interface SessionState {
@@ -763,11 +787,32 @@ export interface SessionStats {
     total: number
   }
   cost: number
+  /** Raw usage/cost buckets aggregated from persisted assistant messages. */
+  costBreakdown?: SessionCostBreakdown
   contextUsage: {
     tokens: number | null
     contextWindow: number
     percent: number | null
   } | null
+}
+
+export interface SessionCostLine {
+  tokens?: number
+  cost?: number
+}
+
+export interface SessionCostBreakdown {
+  input?: SessionCostLine
+  output?: SessionCostLine
+  cacheRead?: SessionCostLine
+  cacheWrite?: SessionCostLine
+  reasoning?: SessionCostLine
+  /** Provider/session-reported amount before discount; never locally estimated. */
+  preDiscountCost?: number
+  /** Provider/session-reported fractional discount in the range 0..1. */
+  discountRate?: number
+  /** Provider/session-reported final actual cost. */
+  finalCost?: number
 }
 
 export interface SessionListItem {
