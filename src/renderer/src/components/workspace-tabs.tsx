@@ -34,7 +34,7 @@ export function WorkspaceTabs(): React.JSX.Element {
   const createNewSession = useAppStore((state) => state.createNewSession)
   const setCurrentView = useAppStore((state) => state.setCurrentView)
 
-  const toolView = ['settings', 'packages', 'notes', 'skills', 'diagnostics'] as const
+  const toolView = ['settings', 'packages', 'mcp', 'notes', 'skills', 'diagnostics'] as const
   const toolsActive =
     toolView.includes(currentView as (typeof toolView)[number]) || globalWorkflowOpen
 

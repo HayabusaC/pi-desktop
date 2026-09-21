@@ -15,6 +15,7 @@ import {
   Activity,
   LayoutDashboard,
   Package,
+  Plug,
   Layers,
   ChevronDown,
   Check,
@@ -40,7 +41,7 @@ import { clampSidebarWidth, resolveSidebarWidth } from '../../../shared/sidebar-
 import type { SessionListItem } from '../../../shared/ipc-contracts'
 
 /** Views reachable from the sidebar's Tools group. */
-type ToolView = 'packages' | 'notes' | 'skills' | 'diagnostics' | 'settings'
+type ToolView = 'packages' | 'mcp' | 'notes' | 'skills' | 'diagnostics' | 'settings'
 
 /** Cap how many workspace groups appear in the Recent list. */
 const MAX_RECENT_GROUPS = 12
@@ -732,6 +733,13 @@ export function Sidebar(): React.JSX.Element {
             label={t('sidebar.tools.packages')}
             active={toolViewShowing('packages')}
             onClick={() => openToolView('packages')}
+          />
+          <SidebarItem
+            compact
+            icon={<Plug size={13} />}
+            label="MCP"
+            active={toolViewShowing('mcp')}
+            onClick={() => openToolView('mcp')}
           />
           <SidebarItem
             compact

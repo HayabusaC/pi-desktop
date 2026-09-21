@@ -25,6 +25,7 @@ import { escapeCmdSpawn } from './cmd-escape'
 import { appLog } from './app-log'
 import { getGuiDataPath } from './app-data-paths'
 import { t, tEnglish } from '../shared/i18n'
+import { getAgentInvoked, getCommandOutputText } from '../shared/rpc-lifecycle'
 
 /**
  * Manages a Pi RPC child process.
@@ -99,6 +100,20 @@ const RPC_DEFAULT_MAX_REASSEMBLED_BYTES = 64 * 1024 * 1024
 const RPC_DEFAULT_MAX_CHUNK_PAYLOAD_BYTES = 1024 * 1024
 /** Chunking only exists for frames a single line cannot carry. */
 const RPC_MIN_CHUNK_COUNT = 2
+const RPC_DEBUG = process.env.PI_DESKTOP_RPC_DEBUG === '1'
+
+function rpcDebug(label: string, detail: Record<string, unknown>): void {
+  if (RPC_DEBUG) console.debug(`[RPC lifecycle] ${label}`, detail)
+}
+
+function rpcCommandKind(command: Record<string, unknown>): string {
+  if (command.type !== 'prompt' || typeof command.message !== 'string') return String(command.type ?? 'unknown')
+  const trimmed = command.message.trim()
+  if (!trimmed.startsWith('/')) return 'prompt:model'
+  // Command and first subcommand identify the route without recording prompt
+  // arguments, URLs, tokens, or other user content.
+  return `prompt:slash:${trimmed.split(/\s+/).slice(0, 2).join(' ')}`
+}
 const RPC_MAX_CHUNK_ID_LENGTH = 128
 /**
  * Standard base64 with the padding the sender's encoder emits. The alphabet
@@ -1031,6 +1046,7 @@ export class PiRpcManager extends EventEmitter {
     const id = `req-${this.nextRequestId++}`
     const cmdWithId = { ...command, id }
     const line = JSON.stringify(cmdWithId) + JSONL_NEWLINE
+    rpcDebug('request', { id, command: rpcCommandKind(command) })
 
     return new Promise<PiResponseEvent | null>((resolve, reject) => {
       // Check capacity BEFORE allocating a slot so the limit is exact.
@@ -1148,6 +1164,26 @@ export class PiRpcManager extends EventEmitter {
       return
     }
     const event = parsed as PiRpcEvent
+
+    if (event.type === 'response') {
+      const response = event as PiResponseEvent
+      rpcDebug('response', {
+        id: response.id ?? 'missing',
+        command: response.command,
+        success: response.success,
+        agentInvoked: getAgentInvoked(response) ?? 'missing',
+      })
+    } else if (event.type === 'command_output') {
+      const output = getCommandOutputText(event)
+      rpcDebug('command_output', { present: Boolean(output), chars: output?.length ?? 0 })
+    } else if (event.type === 'prompt_result') {
+      rpcDebug('prompt_result', {
+        id: (event as { id?: unknown }).id ?? 'missing',
+        agentInvoked: getAgentInvoked(event) ?? 'missing',
+      })
+    } else if (event.type === 'agent_start' || event.type === 'agent_end') {
+      rpcDebug(event.type, {})
+    }
 
     // OMP advertises readiness explicitly. Keep the probe fallback for the
     // original Pi RPC implementation, which has no ready frame.

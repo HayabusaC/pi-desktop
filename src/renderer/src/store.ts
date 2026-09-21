@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { applyThemeSettings, rememberBootTheme, setUserThemes, watchSystemTheme } from './utils/theme'
 import { applyLanguageSetting } from './i18n'
 import { t } from '../../shared/i18n'
+import { getAgentInvoked, getCommandOutputText } from '../../shared/rpc-lifecycle'
 import { buildPlanningPrompt } from './utils/planning-prompt'
 import { parseAgentMessage, type DisplayAttachment, type DisplayMessage } from './message-parsing'
 import type { PiCommand } from '../../shared/pi-command'
@@ -170,6 +171,16 @@ function councilErrorMessage(error: unknown): string {
   return t('store.messages.councilFailed', { detail: error instanceof Error ? error.message : String(error) })
 }
 
+function rpcDebug(label: string, detail: Record<string, unknown> = {}): void {
+  try {
+    if (window.localStorage.getItem('pi-desktop:rpc-debug') === '1') {
+      console.debug(`[RPC lifecycle] ${label}`, detail)
+    }
+  } catch {
+    // Storage can be unavailable in hardened renderer sessions.
+  }
+}
+
 /**
  * The per-turn state left behind once a turn is over. `isStreaming` otherwise
  * only clears on `agent_end` / `turn_end`, so any path that ends a turn without
@@ -265,7 +276,7 @@ interface AppState {
   pendingFollowUp: string[]
 
   // UI
-  currentView: 'home' | 'chat' | 'mission-control' | 'settings' | 'sessions' | 'timeline' | 'packages' | 'diff' | 'notes' | 'skills' | 'diagnostics'
+  currentView: 'home' | 'chat' | 'mission-control' | 'settings' | 'sessions' | 'timeline' | 'packages' | 'mcp' | 'diff' | 'notes' | 'skills' | 'diagnostics'
   // Scope for the Sessions view: 'current' shows only the active workspace's
   // sessions, 'all' keeps every project's history visible. Entry points set it
   // (sidebar Sessions = current, View all / command palette = all); the panel's
@@ -1085,6 +1096,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     })
 
     set({ isStreaming: true, streamingContent: '', streamingThinking: '', streamingToolCalls: new Map() })
+    rpcDebug('waiting:set', { kind: isStreaming ? 'steer' : 'prompt' })
 
     try {
       if (isStreaming) {
@@ -1098,7 +1110,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         // Record the text actually sent (plan mode wraps it), not the text
         // displayed — Pi's message_start echo carries the sent form.
         recordLocalEcho(prompt)
-        await window.piDesktop.commands.prompt(prompt, options)
+        const response = await window.piDesktop.commands.prompt(prompt, options)
+        const agentInvoked = getAgentInvoked(response)
+        rpcDebug('prompt:response', { agentInvoked: agentInvoked ?? 'missing' })
+        if (agentInvoked === false) {
+          set(idleTurnState())
+          rpcDebug('waiting:clear', { reason: 'response.agentInvoked=false' })
+          void get().refreshSessionState()
+        }
       }
     } catch (err) {
       get().addMessage({
@@ -1107,7 +1126,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         content: t('store.messages.error', { detail: err instanceof Error ? err.message : String(err) }),
         timestamp: Date.now(),
       })
-      set({ isStreaming: false })
+      set(idleTurnState())
+      rpcDebug('waiting:clear', { reason: 'prompt-error' })
     }
   },
 
@@ -2088,6 +2108,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         // A fresh turn means real stream context from its first byte — any
         // pending mid-turn-attach backfill was already handled at agent_end.
         set({ reattachedMidTurn: false })
+        rpcDebug('agent_start', { waiting: get().isStreaming })
         get().addTimelineEvent({
           id: generateId(),
           type: 'system',
@@ -2107,6 +2128,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           timelineEvents: closeMostRecentRunning(state.timelineEvents, (e) => e.kind === 'agent-run', 'success'),
         }))
         get().refreshSessionStats()
+        rpcDebug('waiting:clear', { reason: 'agent_end' })
         get().refreshProviderQuota()
         get().addTimelineEvent({
           id: generateId(),
@@ -2196,19 +2218,24 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         break
 
       case 'command_output': {
-        const text = (event as { text?: unknown }).text
-        if (typeof text === 'string' && text.trim()) {
+        const text = getCommandOutputText(event)
+        rpcDebug('command_output', { present: Boolean(text), chars: text?.length ?? 0 })
+        if (text?.trim()) {
           get().addMessage({ id: generateId(), role: 'system', content: text, timestamp: Date.now() })
         }
         break
       }
 
-      case 'prompt_result':
-        if (!(event as { agentInvoked?: unknown }).agentInvoked) {
-          set({ isStreaming: false })
+      case 'prompt_result': {
+        const agentInvoked = getAgentInvoked(event)
+        rpcDebug('prompt_result', { agentInvoked: agentInvoked ?? 'missing' })
+        if (agentInvoked === false) {
+          set(idleTurnState())
+          rpcDebug('waiting:clear', { reason: 'prompt_result.agentInvoked=false' })
           void get().refreshSessionState()
         }
         break
+      }
 
       case 'config_update':
         void get().refreshSessionState()

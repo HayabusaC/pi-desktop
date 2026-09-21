@@ -7,6 +7,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useAppStore } from '../store'
 import { useAppliedThemeId } from '../hooks'
 import { DEFAULT_SETTINGS } from '../../../shared/default-settings'
+import type { TerminalShellId, TerminalShellOption } from '../../../shared/ipc-contracts'
 import { clsx } from 'clsx'
 import {
   Terminal as TerminalIcon,
@@ -15,6 +16,14 @@ import {
   Minimize2,
   Trash2,
 } from 'lucide-react'
+
+const TERMINAL_SHELL_STORAGE_KEY = 'pi-desktop:terminal-shell'
+const TERMINAL_SHELL_LABELS: Record<TerminalShellId, string> = {
+  system: 'Shell',
+  cmd: 'CMD',
+  powershell: 'PowerShell',
+  wsl: 'WSL',
+}
 
 // Build the xterm color theme from the active app theme's CSS variables so the
 // terminal matches whichever theme (dark/light/nord/gruvbox/breeze) is applied.
@@ -54,7 +63,7 @@ function buildTerminalTheme(): ITheme {
 }
 
 export function TerminalPanel(): React.JSX.Element | null {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const terminalOpen = useAppStore((state) => state.terminalOpen)
   const toggleTerminal = useAppStore((state) => state.toggleTerminal)
   const activeWorkspace = useAppStore((state) => state.activeWorkspace)
@@ -62,12 +71,36 @@ export function TerminalPanel(): React.JSX.Element | null {
 
   const [maximized, setMaximized] = useState(false)
   const [shellLabel, setShellLabel] = useState<string | null>(null)
+  const [shellOptions, setShellOptions] = useState<TerminalShellOption[]>([])
+  const [selectedShell, setSelectedShell] = useState<TerminalShellId | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<XTerm | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
 
   useEffect(() => {
-    if (!terminalOpen || !containerRef.current) return
+    if (!terminalOpen) return
+    let cancelled = false
+    void window.piDesktop.terminal.shells().then((options) => {
+      if (cancelled) return
+      setShellOptions(options)
+      let remembered: TerminalShellId | null = null
+      try {
+        const value = window.localStorage.getItem(TERMINAL_SHELL_STORAGE_KEY)
+        if (value === 'system' || value === 'cmd' || value === 'powershell' || value === 'wsl') remembered = value
+      } catch {
+        // Storage may be unavailable in hardened renderer sessions.
+      }
+      const selected = options.find((option) => option.id === remembered && option.available)
+        ?? options.find((option) => option.available)
+      setSelectedShell(selected?.id ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [terminalOpen])
+
+  useEffect(() => {
+    if (!terminalOpen || !containerRef.current || !selectedShell) return
 
     const terminal = new XTerm({
       cursorBlink: true,
@@ -104,20 +137,21 @@ export function TerminalPanel(): React.JSX.Element | null {
     })
     const exitCleanup = window.piDesktop.terminal.onExit((event) => {
       terminal.writeln('')
-      terminal.writeln(`[process exited with code ${event.exitCode}]`)
+      terminal.writeln(i18n.t('terminal.processExited', { code: event.exitCode }))
     })
 
-    window.setTimeout(async () => {
+    const startTimer = window.setTimeout(async () => {
       fitAndResize()
       try {
         const result = await window.piDesktop.terminal.start({
           cwd: activeWorkspace?.path,
           cols: terminal.cols,
           rows: terminal.rows,
+          shell: selectedShell,
         })
-        setShellLabel(result.shell.split('/').pop() ?? result.shell)
+        setShellLabel(result.shell.split(/[\\/]/).pop() ?? result.shell)
       } catch (err) {
-        terminal.writeln(`Failed to start terminal: ${err instanceof Error ? err.message : String(err)}`)
+        terminal.writeln(i18n.t('terminal.startFailed', { detail: err instanceof Error ? err.message : String(err) }))
       }
       terminal.focus()
     }, 0)
@@ -126,6 +160,7 @@ export function TerminalPanel(): React.JSX.Element | null {
 
     return () => {
       window.removeEventListener('resize', fitAndResize)
+      window.clearTimeout(startTimer)
       dataDisposable.dispose()
       outputCleanup()
       exitCleanup()
@@ -134,7 +169,17 @@ export function TerminalPanel(): React.JSX.Element | null {
       terminalRef.current = null
       fitRef.current = null
     }
-  }, [terminalOpen, activeWorkspace?.path])
+  }, [terminalOpen, activeWorkspace?.path, selectedShell, i18n])
+
+  const selectShell = (shell: TerminalShellId): void => {
+    setShellLabel(null)
+    setSelectedShell(shell)
+    try {
+      window.localStorage.setItem(TERMINAL_SHELL_STORAGE_KEY, shell)
+    } catch {
+      // The selection still applies to this window when storage is unavailable.
+    }
+  }
 
   useEffect(() => {
     if (!terminalOpen) return
@@ -167,7 +212,23 @@ export function TerminalPanel(): React.JSX.Element | null {
         <div className="flex items-center gap-2">
           <TerminalIcon size={14} className="text-dim" />
           <span className="text-xs text-muted">{t('terminal.title')}</span>
-          <span className="text-[10px] text-faint">{shellLabel ?? t('terminal.title')}</span>
+          {shellOptions.length > 1 ? (
+            <select
+              value={selectedShell ?? ''}
+              onChange={(event) => selectShell(event.target.value as TerminalShellId)}
+              className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-secondary outline-none hover:border-border-strong"
+              title={t('terminal.selectShell')}
+              aria-label={t('terminal.selectShell')}
+            >
+              {shellOptions.map((option) => (
+                <option key={option.id} value={option.id} disabled={!option.available}>
+                  {TERMINAL_SHELL_LABELS[option.id]}{option.available ? '' : ` (${t('terminal.unavailable')})`}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[10px] text-faint">{shellLabel ?? t('terminal.title')}</span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

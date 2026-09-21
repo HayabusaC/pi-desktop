@@ -126,6 +126,7 @@ export const IPC_CHANNELS = {
   SKILLS_LIST: 'skills:list',
   COMMANDS_LIST: 'commands:list',
   MCP_SERVERS_LIST: 'mcp:servers-list',
+  MCP_SERVERS_ACTION: 'mcp:servers-action',
 
   // Models config
   MODELS_READ: 'models:read',
@@ -154,6 +155,7 @@ export const IPC_CHANNELS = {
 
   // Terminal
   TERMINAL_START: 'terminal:start',
+  TERMINAL_SHELLS: 'terminal:shells',
   TERMINAL_INPUT: 'terminal:input',
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_STOP: 'terminal:stop',
@@ -327,6 +329,14 @@ export interface TerminalStartOptions {
   cwd?: string
   cols?: number
   rows?: number
+  shell?: TerminalShellId
+}
+
+export type TerminalShellId = 'system' | 'cmd' | 'powershell' | 'wsl'
+
+export interface TerminalShellOption {
+  id: TerminalShellId
+  available: boolean
 }
 
 export interface TerminalStartResult {
@@ -705,6 +715,38 @@ export type PiRpcEvent =
   | PiCommandOutputEvent
   | PiPromptResultEvent
   | PiConfigUpdateEvent
+
+export type McpServerScope = 'global' | 'project'
+export type McpRuntimeStatus = 'connected' | 'disconnected' | 'error'
+export type McpServerAction = 'reload' | 'test' | 'reconnect' | 'enable' | 'disable'
+
+export interface McpServerInfo {
+  id: string
+  name: string
+  scope: McpServerScope
+  transport: 'stdio' | 'http' | 'sse'
+  command?: string
+  url?: string
+  args: string[]
+  enabled: boolean
+  configured: true
+  runtimeStatus: McpRuntimeStatus
+  runtimeError?: string
+  sourcePath: string
+  /** Secret-bearing fields are recursively replaced with "[redacted]". */
+  config: Record<string, unknown>
+}
+
+export interface McpServerActionRequest {
+  action: McpServerAction
+  name?: string
+}
+
+export interface McpServerActionResult {
+  success: boolean
+  output?: string
+  agentInvoked?: boolean
+}
 
 // ─── Model Types ────────────────────────────────────────────────────────────
 

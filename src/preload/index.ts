@@ -23,6 +23,7 @@ import type {
   TerminalExitEvent,
   TerminalStartOptions,
   TerminalStartResult,
+  TerminalShellOption,
   Note,
   NoteInput,
   NoteUpdate,
@@ -71,6 +72,9 @@ import type {
   GitConveyorPullRequestResult,
   I18nEnvironment,
   ProviderQuota,
+  McpServerInfo,
+  McpServerActionRequest,
+  McpServerActionResult,
 } from '../shared/ipc-contracts'
 import type { ThemeFile } from '../shared/theme/theme-file'
 import { IPC_CHANNELS } from '../shared/ipc-contracts'
@@ -226,7 +230,8 @@ interface PiDesktopAPI {
     list(): Promise<unknown[]>
   }
   mcpServers: {
-    list(): Promise<unknown[]>
+    list(): Promise<McpServerInfo[]>
+    action(request: McpServerActionRequest): Promise<McpServerActionResult>
   }
   tags: {
     get(sessionId: string): Promise<string[]>
@@ -316,6 +321,7 @@ interface PiDesktopAPI {
   }
 
   terminal: {
+    shells(): Promise<TerminalShellOption[]>
     start(options?: TerminalStartOptions): Promise<TerminalStartResult>
     input(data: string): Promise<void>
     resize(cols: number, rows: number): Promise<void>
@@ -490,6 +496,7 @@ const api: PiDesktopAPI = {
   },
   mcpServers: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_SERVERS_LIST),
+    action: (request) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SERVERS_ACTION, request),
   },
   tags: {
     get: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.TAG_GET, sessionId),
@@ -561,6 +568,7 @@ const api: PiDesktopAPI = {
   },
 
   terminal: {
+    shells: () => ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_SHELLS),
     start: (options) => ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_START, options),
     input: (data) => ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_INPUT, data),
     resize: (cols, rows) => ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_RESIZE, { cols, rows }),

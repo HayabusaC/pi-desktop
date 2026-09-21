@@ -11,8 +11,19 @@ import { isImagePath } from './chat-file-link'
 import { clsx } from 'clsx'
 import {
   FolderOpen,
-  FolderClosed,
   File,
+  FileArchive,
+  FileCode2,
+  FileCog,
+  FileImage,
+  FileJson,
+  FileKey2,
+  FileType2,
+  Braces,
+  Database,
+  Info,
+  Palette,
+  TerminalSquare,
   Search,
   ChevronRight,
   ChevronDown,
@@ -25,7 +36,10 @@ import {
   Eye,
   Code2,
   ShieldAlert,
+  ListCollapse,
+  RefreshCw,
 } from 'lucide-react'
+import { fileIconKind, type FileIconKind } from './file-icon-kind'
 
 // `<webview>` (enabled via webviewTag) isn't a typed JSX intrinsic; cast the tag
 // to a component so TS accepts the props we use. It renders the HTML preview in
@@ -55,6 +69,7 @@ export function FileTree(): React.JSX.Element {
   const [gitBranch, setGitBranch] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
   const [pathExists, setPathExists] = useState(true)
   const activeWorkspace = useAppStore((state) => state.activeWorkspace)
   // Path included: "Change folder…" repoints a workspace without changing its
@@ -107,6 +122,9 @@ export function FileTree(): React.JSX.Element {
   useEffect(() => {
     // The highlight belongs to the previous workspace's tree.
     setSelectedFile(null)
+    // Every newly opened file tree/workspace starts fully collapsed, matching
+    // VS Code's compact explorer instead of expanding the first directory tier.
+    setExpandedPaths(new Set())
     void loadTree(true)
 
     // Primary path: refresh the instant the main process reports a disk change
@@ -147,6 +165,15 @@ export function FileTree(): React.JSX.Element {
     if (ok) setSelectedFile(relativePath)
   }, [])
 
+  const toggleDirectory = useCallback((relativePath: string) => {
+    setExpandedPaths((current) => {
+      const next = new Set(current)
+      if (next.has(relativePath)) next.delete(relativePath)
+      else next.add(relativePath)
+      return next
+    })
+  }, [])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -183,9 +210,33 @@ export function FileTree(): React.JSX.Element {
 
   return (
     <div className="flex flex-col h-full">
+      <div className="flex h-8 items-center justify-between border-b border-border px-2">
+        <span className="min-w-0 truncate text-xs font-medium text-secondary" title={tree.path}>{tree.name}</span>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setExpandedPaths(new Set())}
+            disabled={expandedPaths.size === 0}
+            className="rounded p-1 text-faint transition-colors hover:bg-surface-hover hover:text-secondary disabled:opacity-35"
+            title={t('files.tree.collapseAll')}
+            aria-label={t('files.tree.collapseAll')}
+          >
+            <ListCollapse size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void loadTree(true)}
+            className="rounded p-1 text-faint transition-colors hover:bg-surface-hover hover:text-secondary"
+            title={t('files.tree.refresh')}
+            aria-label={t('files.tree.refresh')}
+          >
+            <RefreshCw size={14} />
+          </button>
+        </div>
+      </div>
       {/* Branch indicator */}
       {gitBranch && (
-        <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-dim border-b border-border">
+        <div className="flex items-center gap-1.5 border-b border-border px-3 py-1 text-[11px] text-dim">
           <GitBranch size={12} />
           <span>{gitBranch}</span>
         </div>
@@ -200,6 +251,8 @@ export function FileTree(): React.JSX.Element {
             gitStatus={gitStatus}
             selectedFile={selectedFile}
             onFileClick={handleFileClick}
+            expandedPaths={expandedPaths}
+            onToggleDirectory={toggleDirectory}
             depth={0}
           />
         ))}
@@ -213,15 +266,19 @@ function TreeNodeComponent({
   gitStatus,
   selectedFile,
   onFileClick,
+  expandedPaths,
+  onToggleDirectory,
   depth,
 }: {
   node: FileTreeNode
   gitStatus: Record<string, GitFileStatus>
   selectedFile: string | null
   onFileClick: (path: string, relativePath: string) => Promise<void>
+  expandedPaths: Set<string>
+  onToggleDirectory: (relativePath: string) => void
   depth: number
 }): React.JSX.Element {
-  const [expanded, setExpanded] = useState(depth < 1)
+  const expanded = expandedPaths.has(node.relativePath)
   const status = gitStatus[node.relativePath]
   const isSelected = selectedFile === node.relativePath
 
@@ -229,16 +286,13 @@ function TreeNodeComponent({
     return (
       <div>
         <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-1 py-0.5 px-2 text-sm text-muted hover:bg-surface-hover/50 hover:text-secondary transition-colors"
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          type="button"
+          onClick={() => onToggleDirectory(node.relativePath)}
+          aria-expanded={expanded}
+          className="flex h-6 w-full items-center gap-1 rounded-sm pr-2 text-[13px] text-muted transition-colors hover:bg-surface-hover hover:text-secondary"
+          style={{ paddingLeft: `${depth * 14 + 6}px` }}
         >
-          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          {expanded ? (
-            <FolderOpen size={12} className="text-accent-fg shrink-0" />
-          ) : (
-            <FolderClosed size={12} className="text-dim shrink-0" />
-          )}
+          {expanded ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
           <span className="truncate">{node.name}</span>
         </button>
         {expanded && node.children?.map((child) => (
@@ -248,6 +302,8 @@ function TreeNodeComponent({
             gitStatus={gitStatus}
             selectedFile={selectedFile}
             onFileClick={onFileClick}
+            expandedPaths={expandedPaths}
+            onToggleDirectory={onToggleDirectory}
             depth={depth + 1}
           />
         ))}
@@ -259,18 +315,43 @@ function TreeNodeComponent({
     <button
       onClick={() => void onFileClick(node.path, node.relativePath)}
       className={clsx(
-        'flex w-full items-center gap-1.5 py-0.5 px-2 text-sm transition-colors',
+        'flex h-6 w-full items-center gap-1.5 rounded-sm pr-2 text-[13px] transition-colors',
         isSelected
           ? 'bg-accent-bg text-accent-fg'
           : 'text-muted hover:bg-surface-hover/50 hover:text-secondary'
       )}
-      style={{ paddingLeft: `${depth * 12 + 20}px` }}
+      style={{ paddingLeft: `${depth * 14 + 22}px` }}
     >
-      <File size={12} className="shrink-0 text-dim" />
+      <FileTypeIcon kind={fileIconKind(node.name)} />
       <span className="truncate">{node.name}</span>
       {status && <GitStatusBadge status={status} />}
     </button>
   )
+}
+
+function FileTypeIcon({ kind }: { kind: FileIconKind }): React.JSX.Element {
+  const props = { size: 14, className: 'shrink-0' }
+  switch (kind) {
+    case 'typescript': return <FileCode2 {...props} className="shrink-0 text-accent-fg" />
+    case 'javascript': return <FileCode2 {...props} className="shrink-0 text-warning" />
+    case 'code': return <FileCode2 {...props} className="shrink-0 text-special" />
+    case 'json': return <Braces {...props} className="shrink-0 text-warning" />
+    case 'yaml': return <FileJson {...props} className="shrink-0 text-error" />
+    case 'html': return <FileCode2 {...props} className="shrink-0 text-warning" />
+    case 'stylesheet': return <Palette {...props} className="shrink-0 text-accent-fg" />
+    case 'image': return <FileImage {...props} className="shrink-0 text-special" />
+    case 'archive': return <FileArchive {...props} className="shrink-0 text-warning" />
+    case 'database': return <Database {...props} className="shrink-0 text-accent-fg" />
+    case 'shell': return <TerminalSquare {...props} className="shrink-0 text-success" />
+    case 'pdf': return <FileType2 {...props} className="shrink-0 text-error" />
+    case 'document': return <FileText {...props} className="shrink-0 text-accent-fg" />
+    case 'info': return <Info {...props} className="shrink-0 text-accent-fg" />
+    case 'config': return <FileCog {...props} className="shrink-0 text-muted" />
+    case 'git': return <GitBranch {...props} className="shrink-0 text-warning" />
+    case 'lock': return <FileKey2 {...props} className="shrink-0 text-faint" />
+    case 'text': return <FileText {...props} className="shrink-0 text-dim" />
+    default: return <File {...props} className="shrink-0 text-dim" />
+  }
 }
 
 function GitStatusBadge({ status }: { status: GitFileStatus }): React.JSX.Element {

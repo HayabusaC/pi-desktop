@@ -613,10 +613,12 @@
       "typeToSearch": "Type to search..."
     },
     "tree": {
+      "collapseAll": "Collapse all folders",
       "folderMissingHint": "The folder may have moved or been deleted. Right-click the workspace in the sidebar and choose “Change folder…” to point it somewhere else.",
       "folderNotFound": "Folder not found",
       "noWorkspaceHint": "Switch to a project folder from the workspace switcher in the sidebar.",
-      "noWorkspaceOpen": "No workspace open"
+      "noWorkspaceOpen": "No workspace open",
+      "refresh": "Refresh file tree"
     }
   },
   "home": {
@@ -661,6 +663,27 @@
   },
   "language": {
     "nativeName": "English"
+  },
+  "mcp": {
+    "actionCompleted": "{{action}} completed",
+    "connected": "Connected",
+    "disable": "Disable",
+    "disabled": "Disabled",
+    "disconnected": "Disconnected",
+    "emptyHint": "OMP user/profile and project sources were checked.",
+    "emptyTitle": "No MCP servers configured.",
+    "enable": "Enable",
+    "enabled": "Enabled",
+    "error": "Error",
+    "globalScope": "Global / Profile",
+    "projectScope": "Project",
+    "reconnect": "Reconnect",
+    "refresh": "Refresh",
+    "reload": "Reload",
+    "subtitle": "OMP MCP configuration and runtime status",
+    "test": "Test",
+    "title": "MCP",
+    "viewConfig": "View complete redacted configuration"
   },
   "menu": {
     "actualSize": "Actual Size",
@@ -1452,8 +1475,12 @@
     "clearTitle": "Clear",
     "closeTitle": "Close terminal",
     "maximizeLabel": "Maximize terminal",
+    "processExited": "[process exited with code {{code}}]",
     "restoreLabel": "Restore terminal",
-    "title": "Terminal"
+    "selectShell": "Select terminal shell",
+    "startFailed": "Failed to start terminal: {{detail}}",
+    "title": "Terminal",
+    "unavailable": "unavailable"
   },
   "themes": {
     "builtin": {

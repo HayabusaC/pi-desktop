@@ -8,14 +8,24 @@ export function registerTerminalHandlers(ctx: IpcContext): void {
 
   // ─── Terminal ──────────────────────────────────────────────────────────
 
+  ipcMain.handle(IPC_CHANNELS.TERMINAL_SHELLS, async (event) => {
+    assertTrustedSender(event)
+    return terminalService.listShells()
+  })
+
   ipcMain.handle(IPC_CHANNELS.TERMINAL_START, async (event, options: unknown) => {
     assertTrustedSender(event)
     const opts = isObject(options) ? options : {}
+    const shell = opts.shell
+    if (shell !== undefined && shell !== 'system' && shell !== 'cmd' && shell !== 'powershell' && shell !== 'wsl') {
+      throw new Error('terminal shell must be system, cmd, powershell, or wsl')
+    }
     return terminalService.start(
       {
         cwd: isString(opts.cwd) ? opts.cwd : workspaceManager.getActiveWorkspace()?.path,
         cols: typeof opts.cols === 'number' ? opts.cols : undefined,
         rows: typeof opts.rows === 'number' ? opts.rows : undefined,
+        shell,
       },
       (data) => broadcast(IPC_CHANNELS.EVENT_TERMINAL_DATA, data),
       (event) => broadcast(IPC_CHANNELS.EVENT_TERMINAL_EXIT, event)

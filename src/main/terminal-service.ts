@@ -1,7 +1,8 @@
 import { existsSync } from 'fs'
 import os from 'os'
 import pty, { type IPty } from 'node-pty'
-import type { TerminalStartOptions, TerminalStartResult } from '../shared/ipc-contracts'
+import type { TerminalShellOption, TerminalStartOptions, TerminalStartResult } from '../shared/ipc-contracts'
+import { listTerminalShells, resolveTerminalShell } from './terminal-shell'
 
 type TerminalDataHandler = (data: string) => void
 type TerminalExitHandler = (event: { exitCode: number; signal?: number }) => void
@@ -18,7 +19,9 @@ export class TerminalService {
   ): TerminalStartResult {
     this.stop()
 
-    const shell = getShell()
+    const shellResolution = resolveTerminalShell(options.shell)
+    if (!shellResolution) throw new Error(`Terminal shell is not available: ${options.shell ?? 'system'}`)
+    const shell = shellResolution.executable
     const cwd = getCwd(options.cwd)
     const env = {
       ...process.env,
@@ -81,13 +84,10 @@ export class TerminalService {
   getCwd(): string {
     return this.cwd
   }
-}
 
-function getShell(): string {
-  if (process.platform === 'win32') {
-    return process.env.COMSPEC ?? 'powershell.exe'
+  listShells(): TerminalShellOption[] {
+    return listTerminalShells()
   }
-  return process.env.SHELL ?? '/bin/bash'
 }
 
 function getCwd(cwd?: string): string {

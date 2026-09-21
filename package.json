@@ -1,6 +1,6 @@
 {
   "name": "pi-desktop",
-  "version": "0.1.8-beta",
+  "version": "0.1.8-gamma",
   "description": "Desktop GUI frontend for the Pi coding agent",
   "main": "out/main/index.js",
   "desktopName": "pi-desktop.desktop",
@@ -36,9 +36,9 @@
     "package:mac": "electron-vite build && electron-builder --mac",
     "package:mac:dmg": "electron-vite build && electron-builder --mac dmg",
     "package:mac:zip": "electron-vite build && electron-builder --mac zip",
-    "package:win": "electron-vite build && electron-builder --win",
-    "package:win:nsis": "electron-vite build && electron-builder --win nsis",
-    "package:win:portable": "electron-vite build && electron-builder --win portable",
+    "package:win": "electron-vite build && electron-builder --win --config.npmRebuild=false",
+    "package:win:nsis": "electron-vite build && electron-builder --win nsis --config.npmRebuild=false",
+    "package:win:portable": "electron-vite build && electron-builder --win portable --config.npmRebuild=false",
     "package:all": "electron-vite build && electron-builder --linux --mac --win",
     "postinstall": "node scripts/postinstall.js"
   },
