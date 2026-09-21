@@ -25,6 +25,16 @@ export const MAX_SIDE_PANEL_WIDTH = 1280
 export const DEFAULT_SIDE_PANEL_WIDTH = 640
 export const DEFAULT_FILE_PANE_WIDTH = 280
 
+/** Bounds shared by the conversation auxiliary panel and the review rail. */
+export const MIN_AUXILIARY_PANEL_WIDTH = 280
+export const MAX_AUXILIARY_PANEL_WIDTH = 960
+export const DEFAULT_CONVERSATION_PANEL_WIDTH = 480
+export const DEFAULT_REVIEW_RAIL_WIDTH = 320
+
+export function clampAuxiliaryPanelWidth(value: number): number {
+  return clamp(value, MIN_AUXILIARY_PANEL_WIDTH, MAX_AUXILIARY_PANEL_WIDTH)
+}
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }

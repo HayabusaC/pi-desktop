@@ -1,6 +1,6 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { Sidebar } from './components/sidebar'
-import { ChatPanel } from './components/chat-panel'
+import { WorkspaceSurface } from './components/workspace-surface'
 import { StatusBar } from './components/status-bar'
 import { SettingsPanel } from './components/settings-panel'
 import { SessionPanel } from './components/session-panel'
@@ -20,6 +20,7 @@ import { CommandPalette } from './components/command-palette'
 import { ExtensionUiDialog, AppConfirmDialog } from './components/extension-ui-dialog'
 import { ReviewRail } from './components/review-rail'
 import { WorkspaceTabs } from './components/workspace-tabs'
+import { TerminalPanel } from './components/terminal'
 import { WorkflowNavigator } from './components/workflow-navigator'
 import { useContextMenu, buildDefaultContextMenu } from './components/context-menu'
 import { usePiEvents, useMenuActions, useInitialize, useNotePickerShortcut } from './hooks'
@@ -165,7 +166,7 @@ export function App(): React.JSX.Element {
                 {/* Kept mounted (just hidden) so chat drafts and scroll state survive
                     navigating to another view or opening global workflows. */}
                 <div className={currentView === 'chat' ? 'flex min-w-0 flex-1 flex-col overflow-hidden' : 'hidden'}>
-                  <ChatPanel />
+                  <WorkspaceSurface />
                 </div>
                 {currentView === 'settings' && <SettingsPanel />}
                 {currentView === 'sessions' && <SessionPanel />}
@@ -179,6 +180,7 @@ export function App(): React.JSX.Element {
                 {currentView === 'diagnostics' && <DiagnosticsPanel />}
               </div>
               {globalWorkflowOpen && <WorkflowNavigator embedded />}
+              {currentView === 'chat' && !globalWorkflowOpen && <TerminalPanel />}
             </main>
             {currentView === 'chat' && !globalWorkflowOpen && <ReviewRail />}
           </div>

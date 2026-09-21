@@ -2,13 +2,18 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   DEFAULT_FILE_PANE_WIDTH,
+  DEFAULT_CONVERSATION_PANEL_WIDTH,
+  DEFAULT_REVIEW_RAIL_WIDTH,
   DEFAULT_SIDE_PANEL_WIDTH,
   MAX_SIDE_PANEL_WIDTH,
   MIN_EDITOR_PANE_WIDTH,
   MIN_FILE_PANE_WIDTH,
   MIN_SIDE_PANEL_WIDTH,
   MIN_SIDE_PANEL_WIDTH_WITH_EDITOR,
+  MAX_AUXILIARY_PANEL_WIDTH,
+  MIN_AUXILIARY_PANEL_WIDTH,
   clamp,
+  clampAuxiliaryPanelWidth,
   resolveSidePanelMetrics,
 } from './chat-panel-widths'
 
@@ -23,6 +28,14 @@ test('clamp bounds a value on both sides', () => {
   assert.equal(clamp(5, 1, 10), 5)
   assert.equal(clamp(-1, 1, 10), 1)
   assert.equal(clamp(99, 1, 10), 10)
+})
+
+test('auxiliary right panels resize within usable bounds', () => {
+  assert.equal(clampAuxiliaryPanelWidth(100), MIN_AUXILIARY_PANEL_WIDTH)
+  assert.equal(clampAuxiliaryPanelWidth(440), 440)
+  assert.equal(clampAuxiliaryPanelWidth(2_000), MAX_AUXILIARY_PANEL_WIDTH)
+  assert.ok(DEFAULT_CONVERSATION_PANEL_WIDTH >= MIN_AUXILIARY_PANEL_WIDTH)
+  assert.ok(DEFAULT_REVIEW_RAIL_WIDTH >= MIN_AUXILIARY_PANEL_WIDTH)
 })
 
 // ─── The regression: a lone file tree could not be widened ───────────────────

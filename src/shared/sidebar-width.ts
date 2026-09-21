@@ -15,7 +15,9 @@ export const MAX_SIDEBAR_WIDTH = 560
  * Fits roughly 36 characters of a session title — the previous 272px cut most
  * first-message previews mid-word.
  */
-export const DEFAULT_SIDEBAR_WIDTH = 320
+export const DEFAULT_SIDEBAR_WIDTH = 288
+/** Previous seeded default; migrate only this exact value to the denser default. */
+const LEGACY_DEFAULT_SIDEBAR_WIDTH = 320
 
 /** Coerce any stored or dragged value into a usable whole-pixel width. */
 export function clampSidebarWidth(raw: number): number {
@@ -32,6 +34,10 @@ export function resolveSidebarWidth(
   persisted: number | null | undefined
 ): number {
   if (draft !== null) return clampSidebarWidth(draft)
-  if (persisted !== null && persisted !== undefined) return clampSidebarWidth(persisted)
+  if (persisted !== null && persisted !== undefined) {
+    return persisted === LEGACY_DEFAULT_SIDEBAR_WIDTH
+      ? DEFAULT_SIDEBAR_WIDTH
+      : clampSidebarWidth(persisted)
+  }
   return DEFAULT_SIDEBAR_WIDTH
 }

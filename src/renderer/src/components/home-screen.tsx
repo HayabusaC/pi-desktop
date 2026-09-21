@@ -340,7 +340,7 @@ function HomeScreenInfo(): React.JSX.Element {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className={clsx('mx-auto max-w-[952px] px-8 py-12', busy && 'pointer-events-none opacity-60')}>
+      <div className={clsx('mx-auto max-w-[1080px] px-6 py-7', busy && 'pointer-events-none opacity-60')}>
         <PiErrorBanner />
 
         <div className="mb-6 flex flex-col items-center text-center">
@@ -349,10 +349,10 @@ function HomeScreenInfo(): React.JSX.Element {
           <p className="mt-1 text-sm text-dim">{t('home.subtitle')}</p>
         </div>
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="mb-4 grid gap-2 sm:grid-cols-3">
           <button
             onClick={() => void openFolder()}
-            className="flex w-full items-center gap-3 rounded-lg border border-border-strong bg-surface px-4 py-3 text-left transition-colors hover:border-border-strong-hover hover:bg-surface-hover"
+            className="flex w-full items-center gap-2.5 rounded-md border border-border-strong bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong-hover hover:bg-surface-hover"
           >
             <FolderOpen size={18} className="shrink-0 text-muted" />
             <div className="min-w-0">
@@ -362,7 +362,7 @@ function HomeScreenInfo(): React.JSX.Element {
           </button>
           <button
             onClick={() => void newSession()}
-            className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface/50 px-4 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-hover/60"
+            className="flex w-full items-center gap-2.5 rounded-md border border-border bg-surface/50 px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-hover/60"
           >
             <Plus size={18} className="shrink-0 text-muted" />
             <div className="min-w-0">
@@ -376,7 +376,7 @@ function HomeScreenInfo(): React.JSX.Element {
           </button>
           <button
             onClick={() => setTaskLauncherOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg border border-accent/50 bg-accent-bg/30 px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent-bg/50"
+            className="flex w-full items-center gap-2.5 rounded-md border border-accent/50 bg-accent-bg/30 px-3 py-2 text-left transition-colors hover:border-accent hover:bg-accent-bg/50"
           >
             <Play size={18} className="shrink-0 text-accent-fg" />
             <div className="min-w-0">

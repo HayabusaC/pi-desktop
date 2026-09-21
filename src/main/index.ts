@@ -16,6 +16,8 @@ import { shouldHideToTray } from './tray-decision'
 import { createEditorGuard } from './editor-guard'
 import { appLog } from './app-log'
 import { IPC_CHANNELS } from '../shared/ipc-contracts'
+import { BrowserService } from './browser-service'
+import { BrowserAgentRpcServer } from './browser-agent-rpc'
 
 // Env var honored on startup: if set, the named directory becomes the active
 // workspace (created on first run, switched to on subsequent runs). The CLI
@@ -73,6 +75,8 @@ let workspaceManager: WorkspaceManager | null = null
 // macOS dock-activate can all bring it back. `isQuitting` distinguishes a real
 // quit (menu/tray Quit, Cmd-Ctrl+Q) from a window close that should hide to tray.
 let mainWindow: BrowserWindow | null = null
+let browserService: BrowserService | null = null
+let browserAgentRpc: BrowserAgentRpcServer | null = null
 let isQuitting = false
 
 // Guards the renderer's unsaved editor buffer against teardown. The renderer
@@ -235,6 +239,7 @@ function createMainWindow(): BrowserWindow {
   window.webContents.on('render-process-gone', () => editorGuard.reset())
 
   window.on('closed', () => {
+    browserService?.destroy()
     if (mainWindow === window) mainWindow = null
   })
 
@@ -418,6 +423,17 @@ app.whenReady().then(async () => {
   workspaceManager = new WorkspaceManager()
   await workspaceManager.initialize()
 
+  browserService = new BrowserService(
+    () => mainWindow,
+    (state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(IPC_CHANNELS.EVENT_BROWSER_STATE, state)
+    },
+  )
+  browserAgentRpc = new BrowserAgentRpcServer(browserService)
+  await browserAgentRpc.start()
+  process.env.PI_DESKTOP_BROWSER_RPC_URL = browserAgentRpc.url ?? ''
+  process.env.PI_DESKTOP_BROWSER_RPC_TOKEN = browserAgentRpc.token
+
   // Honor PI_DESKTOP_WORKSPACE if set: switch to (or create) the named workspace.
   await applyWorkspaceFromEnv(workspaceManager)
 
@@ -440,7 +456,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers(workspaceManager, {
     getWindow: () => mainWindow,
     showWindow: showMainWindow,
-  }, getAppIconPath())
+  }, getAppIconPath(), browserService)
 
   // The renderer mirrors its editor-dirty flag on every transition; the
   // quit/close/reload guards below read the cached value.
@@ -517,6 +533,8 @@ app.on('before-quit', (event) => {
   activityStatsStore.flushSync()
   appLog.flushSync()
   workspaceManager?.stopAll()
+  browserAgentRpc?.stop()
+  browserService?.destroy()
   // Windows: GUI-owned Pi TEMP does not get OS cleanup — wipe on quit.
   cleanupPiChildTempDir()
 })

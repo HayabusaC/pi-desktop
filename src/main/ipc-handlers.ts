@@ -24,6 +24,9 @@ import { registerSystemHandlers } from './ipc/system-handlers'
 import { registerUpdateHandlers } from './ipc/update-handlers'
 import { registerDiagnosticsHandlers } from './ipc/diagnostics-handlers'
 import { registerWorkflowHandlers } from './ipc/workflow-handlers'
+import { registerMagicContextHandlers } from './ipc/magic-context-handlers'
+import { registerBrowserHandlers } from './ipc/browser-handlers'
+import type { BrowserService } from './browser-service'
 import { wireWorkspaceActivity, type WindowControls } from './ipc/workspace-activity-wiring'
 
 export { loadAppSettings, saveAppSettings } from './ipc/settings'
@@ -38,6 +41,7 @@ export function registerIpcHandlers(
   workspaceManager: WorkspaceManager,
   windowControls: WindowControls = { getWindow: () => null, showWindow: () => {} },
   iconPath = '',
+  browserService?: BrowserService,
 ): void {
   const ctx = createIpcContext(workspaceManager)
 
@@ -67,6 +71,8 @@ export function registerIpcHandlers(
   registerUpdateHandlers()
   registerDiagnosticsHandlers(ctx)
   registerWorkflowHandlers(ctx)
+  registerMagicContextHandlers(ctx)
+  if (browserService) registerBrowserHandlers(browserService)
 
   // ─── Extension UI Responses and Pi Event Forwarding ─────────────────────
 

@@ -137,12 +137,12 @@
   .markdown-body {
     font-family: 'Inter Variable', 'OpenMoji Color', system-ui, sans-serif;
     font-size: 0.9375rem;
-    line-height: 1.6;
+    line-height: 1.5;
     color: var(--color-primary);
   }
 
   .markdown-body p {
-    margin-bottom: 0.75em;
+    margin-bottom: 0.55em;
   }
 
   .markdown-body p:last-child {
@@ -171,8 +171,8 @@
   .markdown-body h6 {
     font-size: 1em;
     font-weight: 600;
-    margin-top: 1.25em;
-    margin-bottom: 0.5em;
+    margin-top: 1em;
+    margin-bottom: 0.4em;
     color: var(--color-primary);
   }
 
@@ -195,7 +195,7 @@
   }
 
   .markdown-body pre {
-    margin: 0.75em 0;
+    margin: 0.55em 0;
     border-radius: 8px;
     overflow-x: auto;
     background: var(--color-md-pre-bg);
@@ -204,12 +204,12 @@
 
   .markdown-body pre code {
     display: block;
-    padding: 0.875em 1em;
+    padding: 0.7em 0.85em;
     background: transparent;
     color: var(--color-primary);
     font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'OpenMoji Color', 'Fira Code', 'Cascadia Code', monospace;
     font-size: 0.75rem;
-    line-height: 1.6;
+    line-height: 1.5;
   }
 
   .markdown-body ul,

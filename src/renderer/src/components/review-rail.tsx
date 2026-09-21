@@ -6,6 +6,8 @@ import { DEFAULT_AGENT_ENGINE_LABEL, agentEngineLabel } from '../../../shared/ag
 import { PermissionSelector } from './permission-selector'
 import { formatIpcError } from '../utils/ipc-error'
 import type { GitFileStatus } from '../../../shared/ipc-contracts'
+import { ResizeHandle } from './resize-handle'
+import { clampAuxiliaryPanelWidth, DEFAULT_REVIEW_RAIL_WIDTH } from './chat-panel-widths'
 
 interface ChangedFile {
   path: string
@@ -26,6 +28,7 @@ export function ReviewRail(): React.JSX.Element | null {
   const messages = useAppStore((state) => state.messages)
   const [gitStatus, setGitStatus] = useState<Record<string, GitFileStatus>>({})
   const [gitError, setGitError] = useState<string | null>(null)
+  const [railWidth, setRailWidth] = useState(DEFAULT_REVIEW_RAIL_WIDTH)
 
   const pendingCount = pendingSteering.length + pendingFollowUp.length
   const changedFiles = useMemo<ChangedFile[]>(
@@ -66,7 +69,9 @@ export function ReviewRail(): React.JSX.Element | null {
   if (!reviewOpen) return null
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-app">
+    <div className="flex shrink-0 bg-app" style={{ width: railWidth }}>
+      <ResizeHandle onResize={(delta) => setRailWidth((width) => clampAuxiliaryPanelWidth(width - delta))} />
+    <aside className="flex min-w-0 flex-1 flex-col border-l border-border bg-app">
       <div className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <ShieldCheck size={16} className="text-success" />
@@ -181,6 +186,7 @@ export function ReviewRail(): React.JSX.Element | null {
         </section>
       </div>
     </aside>
+    </div>
   )
 }
 

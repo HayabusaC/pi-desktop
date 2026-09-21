@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 import { DEFAULT_AGENT_ENGINE_LABEL, agentEngineLabel } from '../../../shared/agent-engine-label'
-import type { ModelInfo } from '../../../shared/ipc-contracts'
+import type { ModelInfo, PiProcessStatus, SessionState } from '../../../shared/ipc-contracts'
 import { filterModels } from '../utils/model-search'
 import { clsx } from 'clsx'
 import { Cpu, ChevronUp, Check, Loader2, Search } from 'lucide-react'
@@ -10,17 +10,22 @@ import { Cpu, ChevronUp, Check, Loader2, Search } from 'lucide-react'
 interface ModelSelectorProps {
   className?: string
   compact?: boolean
+  runtimeId?: string
+  sessionState?: SessionState | null
+  piStatus?: PiProcessStatus
 }
 
 /**
  * Searchable model picker for the status bar.
  * Opens upward; loads models when Pi is running.
  */
-export function ModelSelector({ className, compact = false }: ModelSelectorProps): React.JSX.Element {
+export function ModelSelector({ className, compact = false, runtimeId, sessionState: scopedSessionState, piStatus: scopedPiStatus }: ModelSelectorProps): React.JSX.Element {
   const { t } = useTranslation()
-  const sessionState = useAppStore((state) => state.sessionState)
+  const globalSessionState = useAppStore((state) => state.sessionState)
   const setModel = useAppStore((state) => state.setModel)
-  const piStatus = useAppStore((state) => state.piStatus)
+  const globalPiStatus = useAppStore((state) => state.piStatus)
+  const sessionState = runtimeId ? scopedSessionState : globalSessionState
+  const piStatus = runtimeId ? (scopedPiStatus ?? 'stopped') : globalPiStatus
   const engineLabel = useAppStore((state) => agentEngineLabel(state.piEngine) ?? DEFAULT_AGENT_ENGINE_LABEL)
   const settings = useAppStore((state) => state.settings)
 
@@ -54,7 +59,9 @@ export function ModelSelector({ className, compact = false }: ModelSelectorProps
     setLoading(true)
     setLoadError(false)
     try {
-      const response = (await window.piDesktop.model.listAvailable()) as {
+      const response = (await (runtimeId
+        ? window.piDesktop.session.commandRuntime(runtimeId, { type: 'get_available_models' })
+        : window.piDesktop.model.listAvailable())) as {
         success?: boolean
         data?: { models?: ModelInfo[] }
       } | null
@@ -77,7 +84,7 @@ export function ModelSelector({ className, compact = false }: ModelSelectorProps
       return
     }
     setIsOpen(true)
-    if (useAppStore.getState().piStatus === 'running') {
+    if (piStatus === 'running') {
       void loadModels()
     }
   }
@@ -85,7 +92,10 @@ export function ModelSelector({ className, compact = false }: ModelSelectorProps
   useEffect(() => {
     if (!isOpen || piStatus !== 'running') return
     void loadModels()
-  }, [isOpen, piStatus])
+  // loadModels intentionally reads the latest runtimeId without making the
+  // dropdown reopen when the callback identity changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, piStatus, runtimeId])
 
   useEffect(() => {
     if (!isOpen) return
@@ -107,8 +117,9 @@ export function ModelSelector({ className, compact = false }: ModelSelectorProps
   const filteredModels = useMemo(() => filterModels(models, query), [models, query])
 
   const handleSelect = async (model: ModelInfo): Promise<void> => {
-    if (useAppStore.getState().piStatus === 'running') {
-      await setModel(model.provider, model.id)
+    if (piStatus === 'running') {
+      if (runtimeId) await window.piDesktop.session.commandRuntime(runtimeId, { type: 'set_model', provider: model.provider, modelId: model.id })
+      else await setModel(model.provider, model.id)
     } else {
       // Persist preferred model for the next Pi start.
       const updated = await window.piDesktop.settings.save({

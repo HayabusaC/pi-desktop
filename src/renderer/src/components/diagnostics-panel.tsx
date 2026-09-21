@@ -140,7 +140,7 @@ export function DiagnosticsPanel(): React.JSX.Element {
             </button>
           </div>
         ) : report ? (
-          <div className="mx-auto max-w-3xl space-y-6">
+          <div className="mx-auto max-w-5xl space-y-4">
             <DiagSection title={t('diagnostics.sections.application')}>
               <DiagRow label={t('diagnostics.fields.appVersion')} value={report.app.version} />
               <DiagRow label={t('diagnostics.fields.electron')} value={report.app.electron} />

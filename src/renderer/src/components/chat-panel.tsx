@@ -24,6 +24,7 @@ import { FileTree, FileSearch, FilePreview } from './file-tree'
 import { ImageViewer } from './image-viewer'
 import { DiffViewer } from './diff-viewer'
 import { TerminalPanel } from './terminal'
+import { ContextPanel } from './context-panel'
 import { useChatScroll, useGlobalWorkflowOpen } from '../hooks'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -40,6 +41,7 @@ import {
   ChevronDown,
   Loader2,
   Workflow as WorkflowIcon,
+  Brain,
 } from 'lucide-react'
 
 // Fallback padding when the composer has not measured yet (~idle pill + gradient).
@@ -80,6 +82,8 @@ export function ChatPanel(): React.JSX.Element {
   const toggleFileSearch = useAppStore((state) => state.toggleFileSearch)
   const previewTarget = useAppStore((state) => state.previewTarget)
   const workflowPanelOpen = useAppStore((state) => state.workflowPanelOpen)
+  const magicContextActive = useAppStore((state) => state.magicContextCapabilities?.magicContext === true)
+  const magicContextError = useAppStore((state) => state.magicContextError)
 
   // sidePanel lives in the store so it survives view switches (e.g. Settings
   // round-trip). Widths stay local — resetting them on remount is benign.
@@ -154,9 +158,11 @@ export function ChatPanel(): React.JSX.Element {
   const activeWorkspace = useAppStore((state) => state.activeWorkspace)
   const showSidePanel = sidePanel !== null || previewTarget !== null
   const showFileTree = sidePanel === 'files'
-  const showImage = previewTarget?.kind === 'image' && sidePanel !== 'diff'
-  const showEditor = previewTarget?.kind === 'code' && sidePanel !== 'diff'
+  const replacesPreview = sidePanel === 'diff' || sidePanel === 'context'
+  const showImage = previewTarget?.kind === 'image' && !replacesPreview
+  const showEditor = previewTarget?.kind === 'code' && !replacesPreview
   const showDiff = sidePanel === 'diff'
+  const showContext = sidePanel === 'context'
   const {
     fileTreeOnly: showFileTreeOnly,
     minSidePanelWidth,
@@ -228,6 +234,15 @@ export function ChatPanel(): React.JSX.Element {
                 }}
                 title={t('common.workflowRuns')}
               />
+              {magicContextActive && (
+                <ToolbarButton
+                  icon={<Brain size={14} />}
+                  active={showContext}
+                  onClick={() => void setSidePanel(showContext ? null : 'context')}
+                  title={t('context.open')}
+                />
+              )}
+              {magicContextError && <span className="ml-2 max-w-72 truncate text-xs text-error" title={magicContextError}>{magicContextError}</span>}
             </div>
           </div>
 
@@ -415,6 +430,11 @@ export function ChatPanel(): React.JSX.Element {
               {showDiff && (
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                   <DiffViewer onClose={() => setSidePanel(null)} />
+                </div>
+              )}
+              {showContext && (
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                  <ContextPanel onClose={() => void setSidePanel(null)} />
                 </div>
               )}
               {showEditor && (

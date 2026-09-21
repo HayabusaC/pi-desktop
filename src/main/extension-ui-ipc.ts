@@ -24,6 +24,7 @@ export type IpcInvokeRegistrar<TEvent> = (
 export interface ExtensionUiWorkspace {
   getActivePiManager(): PiRpcManager | null
   workspaceIdFor(manager: PiRpcManager): string | null
+  runtimeIdFor?(manager: PiRpcManager): string | null
   onPiManager(listener: (manager: PiRpcManager) => void): void
   onActiveWorkspaceChanged(listener: (workspaceId: string | null) => void): void
 }
@@ -55,6 +56,10 @@ export function createExtensionUiRouter(deps: {
     getActiveManager: () => deps.workspace.getActivePiManager(),
     workspaceIdFor: (manager) => deps.workspace.workspaceIdFor(manager),
     broadcastEvent: (event) => deps.broadcast(IPC_CHANNELS.EVENT_PI, event),
+    broadcastRuntimeEvent: (manager, event) => {
+      const runtimeId = deps.workspace.runtimeIdFor?.(manager)
+      if (runtimeId) deps.broadcast(IPC_CHANNELS.EVENT_SESSION_RUNTIME_PI, { runtimeId, event })
+    },
     broadcastPendingCounts: (counts) => {
       deps.onPendingCounts?.(counts)
       deps.broadcast(IPC_CHANNELS.EVENT_PENDING_PROMPTS, counts)

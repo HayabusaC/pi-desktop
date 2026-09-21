@@ -45,6 +45,8 @@ export interface PiEventRouterDeps {
   workspaceIdFor(manager: PiRpcManager): string | null
   /** Forward one Pi event to the renderer (EVENT_PI). */
   broadcastEvent(event: PiRpcEvent): void
+  /** Forward every manager event with its runtime identity for split panes. */
+  broadcastRuntimeEvent?(manager: PiRpcManager, event: PiRpcEvent): void
   /** Push a fresh pending-prompt snapshot to the renderer (EVENT_PENDING_PROMPTS). */
   broadcastPendingCounts(counts: PendingPromptCounts): void
   now(): number
@@ -174,6 +176,7 @@ export function createPiEventRouter(deps: PiEventRouterDeps): PiEventRouter {
   }
 
   const handleManagerEvent = (manager: PiRpcManager, event: PiRpcEvent): void => {
+    deps.broadcastRuntimeEvent?.(manager, event)
     if (isBlockingDialog(event)) {
       handleBlockingDialog(manager, event)
       return
@@ -212,6 +215,7 @@ export function createPiEventRouter(deps: PiEventRouterDeps): PiEventRouter {
     attached.add(manager)
     manager.on('event', (event: PiRpcEvent) => handleManagerEvent(manager, event))
     manager.on('status-change', (status: PiProcessStatus) => {
+      deps.broadcastRuntimeEvent?.(manager, { type: 'status_change', ...manager.getStatus() })
       if (manager === deps.getActiveManager()) {
         deps.broadcastEvent({ type: 'status_change', ...manager.getStatus() })
       }
@@ -221,6 +225,7 @@ export function createPiEventRouter(deps: PiEventRouterDeps): PiEventRouter {
     // routing it through 'status-change' would re-run evictManager and purge
     // extension UI prompts the still-starting engine already sent.
     manager.on('startup-phase', () => {
+      deps.broadcastRuntimeEvent?.(manager, { type: 'status_change', ...manager.getStatus() })
       if (manager === deps.getActiveManager()) {
         deps.broadcastEvent({ type: 'status_change', ...manager.getStatus() })
       }

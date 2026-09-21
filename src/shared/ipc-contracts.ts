@@ -9,6 +9,22 @@ import type { PermissionRule } from '../../resources/permission-rules'
 // ─── IPC Channel Names ──────────────────────────────────────────────────────
 
 export const IPC_CHANNELS = {
+  // Browser workspace tabs (Electron WebContentsView; never iframe/webview).
+  BROWSER_CREATE: 'browser:create',
+  BROWSER_CLOSE: 'browser:close',
+  BROWSER_LIST: 'browser:list',
+  BROWSER_NAVIGATE: 'browser:navigate',
+  BROWSER_GO_BACK: 'browser:go-back',
+  BROWSER_GO_FORWARD: 'browser:go-forward',
+  BROWSER_RELOAD: 'browser:reload',
+  BROWSER_STOP: 'browser:stop',
+  BROWSER_SET_LAYOUT: 'browser:set-layout',
+  BROWSER_SNAPSHOT: 'browser:snapshot',
+  BROWSER_SCREENSHOT: 'browser:screenshot',
+  BROWSER_CLICK: 'browser:click',
+  BROWSER_TYPE: 'browser:type',
+  BROWSER_EVALUATE: 'browser:evaluate',
+  EVENT_BROWSER_STATE: 'event:browser-state',
   // Pi process lifecycle
   PI_START: 'pi:start',
   PI_STOP: 'pi:stop',
@@ -26,8 +42,10 @@ export const IPC_CHANNELS = {
 
   // Session management
   SESSION_NEW: 'session:new',
+  SESSION_NEW_IN_WORKSPACE: 'session:new-in-workspace',
   SESSION_LAUNCH_TASK: 'session:launch-task',
   SESSION_CLOSE_RUNTIME: 'session:close-runtime',
+  SESSION_ACTIVATE_RUNTIME: 'session:activate-runtime',
   SESSION_SWITCH: 'session:switch',
   SESSION_LIST_RUNTIMES: 'session:list-runtimes',
   SESSION_FORK: 'session:fork',
@@ -36,6 +54,10 @@ export const IPC_CHANNELS = {
   SESSION_LIST_ALL: 'session:list-all',
   SESSION_GET_STATE: 'session:get-state',
   SESSION_GET_MESSAGES: 'session:get-messages',
+  SESSION_GET_RUNTIME_MESSAGES: 'session:get-runtime-messages',
+  SESSION_RUNTIME_PROMPT: 'session:runtime-prompt',
+  SESSION_RUNTIME_ABORT: 'session:runtime-abort',
+  SESSION_RUNTIME_COMMAND: 'session:runtime-command',
   SESSION_GET_STATS: 'session:get-stats',
   SESSION_SET_NAME: 'session:set-name',
   SESSION_EXPORT_HTML: 'session:export-html',
@@ -131,6 +153,14 @@ export const IPC_CHANNELS = {
   // Models config
   MODELS_READ: 'models:read',
   MODELS_WRITE: 'models:write',
+  MAGIC_CONTEXT_CAPABILITIES: 'magic-context:capabilities',
+  MAGIC_CONTEXT_DATA: 'magic-context:data',
+  MAGIC_CONTEXT_ACTION: 'magic-context:action',
+  MAGIC_CONTEXT_COMPACT: 'magic-context:compact',
+  MAGIC_CONTEXT_MEMORY_UPDATE: 'magic-context:memory-update',
+  MAGIC_CONTEXT_MEMORY_DELETE: 'magic-context:memory-delete',
+  MAGIC_CONTEXT_CONFIG_READ: 'magic-context:config-read',
+  MAGIC_CONTEXT_CONFIG_WRITE: 'magic-context:config-write',
 
   // Council planning
   COUNCIL_DETECT: 'council:detect',
@@ -190,6 +220,7 @@ export const IPC_CHANNELS = {
 
   // Events (main → renderer)
   EVENT_PI: 'event:pi',
+  EVENT_SESSION_RUNTIME_PI: 'event:session-runtime-pi',
   EVENT_PENDING_PROMPTS: 'event:pending-prompts',
   EVENT_WORKSPACE_ACTIVITY: 'event:workspace-activity',
   EVENT_SESSION_RUNTIME: 'event:session-runtime',
@@ -199,6 +230,83 @@ export const IPC_CHANNELS = {
   EVENT_TERMINAL_EXIT: 'event:terminal-exit',
   EVENT_COUNCIL_PROGRESS: 'event:council-progress',
 } as const
+
+export interface MagicContextCapabilities {
+  magicContext: boolean
+  ctxWrapup: boolean
+  ctxFlush: boolean
+  ctxDreamer: boolean
+  ctxMemory: boolean
+  ctxHistorian: boolean
+  ctxDashboardData: boolean
+  dbPath: string | null
+  configPaths: { user: string; project: string | null }
+  error?: string
+}
+
+export interface MagicContextMemory {
+  id: number
+  project_path: string
+  category: string
+  content: string
+  status: string
+  source_type: string
+  seen_count: number
+  retrieval_count: number
+  updated_at: number
+  importance: number
+}
+
+export interface MagicContextSession {
+  session_id: string
+  title: string | null
+  project_identity: string | null
+  compartment_count: number
+  last_response_time: number | null
+  last_context_percentage: number | null
+  is_subagent: boolean
+}
+
+export interface MagicContextDreamRun {
+  id: number
+  project_path: string
+  started_at: number
+  finished_at: number
+  tasks_succeeded: number
+  tasks_failed: number
+  tasks_json: unknown
+}
+
+export interface MagicContextDashboardData {
+  loadedAt: number
+  overview: { memories: number; sessions: number; compartments: number; dreamRuns: number }
+  memories: MagicContextMemory[]
+  sessions: MagicContextSession[]
+  historian: Array<Record<string, unknown>>
+  dreamer: { enabled: boolean; schedules: Array<Record<string, unknown>>; runs: MagicContextDreamRun[] }
+  cache: Array<Record<string, unknown>>
+  logs: Array<{ timestamp: string; level: string | null; message: string; raw: string }>
+}
+
+export type MagicContextAction =
+  | { action: 'status' }
+  | { action: 'wrapup'; keep: 20 | 50 }
+  | { action: 'flush' }
+  | { action: 'dream'; task?: string }
+
+export interface MagicContextActionResult {
+  success: boolean
+  output?: string
+  error?: string
+}
+
+export interface MagicContextConfigFile {
+  source: 'user' | 'project'
+  path: string
+  exists: boolean
+  content: string | null
+  error?: string
+}
 
 // ─── Pi Process Types ───────────────────────────────────────────────────────
 
@@ -715,6 +823,12 @@ export type PiRpcEvent =
   | PiCommandOutputEvent
   | PiPromptResultEvent
   | PiConfigUpdateEvent
+
+/** Every live session runtime emits its own event stream, including inactive panes. */
+export interface SessionRuntimePiEvent {
+  runtimeId: string
+  event: PiRpcEvent
+}
 
 export type McpServerScope = 'global' | 'project'
 export type McpRuntimeStatus = 'connected' | 'disconnected' | 'error'
@@ -1306,6 +1420,52 @@ export interface Workspace {
   /** Original task text when the app created or adopted this worktree. */
   taskPrompt?: string
 }
+
+// ─── Browser Workspace Tabs ────────────────────────────────────────────────
+
+/** Public state for one persistent-profile browser tab. */
+export interface BrowserTabState {
+  id: string
+  title: string
+  url: string
+  loading: boolean
+  canGoBack: boolean
+  canGoForward: boolean
+  crashed?: boolean
+  closed?: boolean
+}
+
+/** Content bounds are relative to the BrowserWindow content area. */
+export interface BrowserViewLayout {
+  id: string
+  visible: boolean
+  bounds: { x: number; y: number; width: number; height: number }
+}
+
+export interface BrowserSnapshot {
+  url: string
+  title: string
+  text: string
+  /** Compact interactive-element inventory used by agents for targeting. */
+  elements: Array<{
+    index: number
+    tag: string
+    role: string | null
+    name: string
+    selector: string
+  }>
+}
+
+export type BrowserAgentAction =
+  | { action: 'tabs' }
+  | { action: 'newTab'; url?: string }
+  | { action: 'closeTab'; tabId: string }
+  | { action: 'navigate'; tabId: string; url: string }
+  | { action: 'snapshot'; tabId: string }
+  | { action: 'screenshot'; tabId: string }
+  | { action: 'click'; tabId: string; selector?: string; x?: number; y?: number }
+  | { action: 'type'; tabId: string; selector?: string; text: string; submit?: boolean }
+  | { action: 'evaluate'; tabId: string; expression: string }
 
 // ─── Notes Types ────────────────────────────────────────────────────────────
 

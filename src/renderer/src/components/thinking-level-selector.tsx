@@ -3,17 +3,23 @@ import { useTranslation } from 'react-i18next'
 import { Check, ChevronUp, Zap } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAppStore } from '../store'
+import type { PiProcessStatus, SessionState } from '../../../shared/ipc-contracts'
 
 interface ThinkingLevelSelectorProps {
   className?: string
+  runtimeId?: string
+  sessionState?: SessionState | null
+  piStatus?: PiProcessStatus
 }
 
 /** Compact model-aware effort picker for the composer action rail. */
-export function ThinkingLevelSelector({ className }: ThinkingLevelSelectorProps): React.JSX.Element {
+export function ThinkingLevelSelector({ className, runtimeId, sessionState: scopedSessionState, piStatus: scopedPiStatus }: ThinkingLevelSelectorProps): React.JSX.Element {
   const { t } = useTranslation()
-  const sessionState = useAppStore((state) => state.sessionState)
+  const globalSessionState = useAppStore((state) => state.sessionState)
   const setThinkingLevel = useAppStore((state) => state.setThinkingLevel)
-  const piStatus = useAppStore((state) => state.piStatus)
+  const globalPiStatus = useAppStore((state) => state.piStatus)
+  const sessionState = runtimeId ? scopedSessionState : globalSessionState
+  const piStatus = runtimeId ? (scopedPiStatus ?? 'stopped') : globalPiStatus
   const [isOpen, setIsOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -66,7 +72,8 @@ export function ThinkingLevelSelector({ className }: ThinkingLevelSelectorProps)
               key={level}
               type="button"
               onClick={() => {
-                void setThinkingLevel(level)
+                if (runtimeId) void window.piDesktop.session.commandRuntime(runtimeId, { type: 'set_thinking_level', level })
+                else void setThinkingLevel(level)
                 setIsOpen(false)
               }}
               className={clsx(

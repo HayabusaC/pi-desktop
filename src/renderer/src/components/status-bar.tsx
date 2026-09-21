@@ -76,9 +76,9 @@ export function StatusBar(): React.JSX.Element {
   }, [activeWorkspace?.id])
 
   return (
-    <div className="flex h-7 items-center justify-between border-t border-border bg-app px-3 text-xs">
+    <div className="flex h-6 items-center justify-between border-t border-border bg-app px-2 text-[11px]">
       {/* Left section */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Pi Status */}
         <div className="flex items-center gap-1.5">
           <div
@@ -141,7 +141,7 @@ export function StatusBar(): React.JSX.Element {
       </div>
 
       {/* Right section */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Dedicated workflow navigator */}
         <button
           data-workflow-toggle="true"

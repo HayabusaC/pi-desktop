@@ -214,6 +214,21 @@ test('multiple session runtimes share a project cwd without sharing a Pi process
   })
 })
 
+test('a background conversation runtime does not replace the active runtime', async () => {
+  await freshDataDir()
+  await withManager(async (mgr) => {
+    const workspace = await mgr.createWorkspace('Alpha', await project())
+    const active = await mgr.createNewSessionRuntime(workspace.id)
+    const background = await mgr.createNewSessionRuntime(workspace.id, false)
+
+    assert.notEqual(background.runtimeId, active.runtimeId)
+    assert.equal(background.workspaceId, workspace.id)
+    assert.equal(background.active, false)
+    assert.equal(mgr.getActiveSessionRuntime()?.runtimeId, active.runtimeId)
+    assert.equal(mgr.getSessionRuntimes(workspace.id).length, 2)
+  })
+})
+
 test('changeWorkspacePath stops the workspace Pi so it cannot keep the old cwd', async () => {
   await freshDataDir()
 

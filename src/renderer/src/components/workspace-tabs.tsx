@@ -4,9 +4,6 @@ import { AlertCircle, CheckCircle2, FolderOpen, GitBranch, Loader2, MessageSquar
 import { clsx } from 'clsx'
 import { useAppStore } from '../store'
 import { useGlobalWorkflowOpen } from '../hooks'
-import { getSessionTitle } from '../utils/session-title'
-import { pathsEqual } from '../../../shared/path-compare'
-import { SessionRuntimeIndicator } from './session-runtime-indicator'
 import type { Workspace } from '../../../shared/ipc-contracts'
 
 function tabLabel(workspace: Workspace): string {
@@ -17,9 +14,6 @@ export function WorkspaceTabs(): React.JSX.Element {
   const { t } = useTranslation()
   const workspaces = useAppStore((state) => state.workspaces)
   const activeWorkspace = useAppStore((state) => state.activeWorkspace)
-  const sessionList = useAppStore((state) => state.sessionList)
-  const sessionRuntimes = useAppStore((state) => state.sessionRuntimes)
-  const activeSessionRuntimeId = useAppStore((state) => state.activeSessionRuntimeId)
   const sidebarOpen = useAppStore((state) => state.sidebarOpen)
   const toggleSidebar = useAppStore((state) => state.toggleSidebar)
   const workspaceActivity = useAppStore((state) => state.workspaceActivity)
@@ -27,8 +21,6 @@ export function WorkspaceTabs(): React.JSX.Element {
   const globalWorkflowOpen = useGlobalWorkflowOpen()
   const setWorkflowPanelOpen = useAppStore((state) => state.setWorkflowPanelOpen)
   const activateWorkspace = useAppStore((state) => state.activateWorkspace)
-  const switchSession = useAppStore((state) => state.switchSession)
-  const closeSessionTab = useAppStore((state) => state.closeSessionTab)
   const removeWorkspace = useAppStore((state) => state.removeWorkspace)
   const createWorktreeTab = useAppStore((state) => state.createWorktreeTab)
   const createNewSession = useAppStore((state) => state.createNewSession)
@@ -42,22 +34,15 @@ export function WorkspaceTabs(): React.JSX.Element {
     () => [...workspaces].sort((a, b) => a.createdAt - b.createdAt),
     [workspaces]
   )
-  const sessionTabs = useMemo(
-    () => Object.values(sessionRuntimes)
-      .filter((runtime) => runtime.workspaceId === activeWorkspace?.id && runtime.sessionPath)
-      // Newest runtime first; selecting a tab never changes its position.
-      .reverse(),
-    [activeWorkspace?.id, sessionRuntimes]
-  )
 
   return (
     <div className="flex shrink-0 flex-col bg-app">
-    <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-border px-2 pt-1">
+    <div className="flex h-8 items-end gap-0.5 overflow-x-auto border-b border-border px-1.5 pt-0.5">
       {!sidebarOpen && (
         <button
           type="button"
           onClick={toggleSidebar}
-          className="mb-1 flex h-7 w-7 shrink-0 animate-fade-in items-center justify-center rounded-md border border-border-strong bg-surface text-muted shadow-sm transition-colors hover:bg-surface-hover hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
+          className="mb-0.5 flex h-6 w-6 shrink-0 animate-fade-in items-center justify-center rounded border border-border-strong bg-surface text-muted shadow-sm transition-colors hover:bg-surface-hover hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
           title={t('common.showSidebar')}
           aria-label={t('common.showSidebar')}
         >
@@ -84,7 +69,7 @@ export function WorkspaceTabs(): React.JSX.Element {
               void removeWorkspace(workspace.id)
             }}
             className={clsx(
-              'group flex h-9 min-w-[150px] max-w-[240px] shrink-0 items-center gap-2 rounded-t-md border border-b-0 px-2.5 text-xs transition-colors',
+              'group flex h-7 min-w-[128px] max-w-[210px] shrink-0 items-center gap-1.5 rounded-t border border-b-0 px-2 text-[11px] transition-colors',
               active
                 ? 'border-border bg-surface text-primary'
                 : 'border-transparent text-muted hover:bg-surface/60 hover:text-secondary'
@@ -136,14 +121,14 @@ export function WorkspaceTabs(): React.JSX.Element {
       })}
 
       {toolsActive && (
-        <div className="group flex h-9 min-w-[140px] shrink-0 items-center rounded-t-md border border-b-0 border-border bg-surface text-primary">
+        <div className="group flex h-7 min-w-[120px] shrink-0 items-center rounded-t border border-b-0 border-border bg-surface text-primary">
           {/* The tab only exists while a tool surface is on screen, so its label
               always names what is already showing — a static marker, never a
               control that navigates somewhere the user did not ask for. Closing
               is the neighbouring button's job. */}
           <div
             aria-current="page"
-            className="flex min-w-0 flex-1 items-center gap-2 px-2.5 text-left text-xs"
+            className="flex min-w-0 flex-1 items-center gap-1.5 px-2 text-left text-[11px]"
             title={t('workspaceTabs.tools')}
           >
             <Settings size={13} className="shrink-0 text-accent-fg" />
@@ -171,7 +156,7 @@ export function WorkspaceTabs(): React.JSX.Element {
           setCurrentView('chat')
           void createNewSession()
         }}
-        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-primary transition-colors"
+        className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted hover:bg-surface-hover hover:text-primary transition-colors"
         title={t('workspaceTabs.newSessionTitle')}
         aria-label={t('workspaceTabs.newSessionAriaLabel')}
       >
@@ -180,62 +165,13 @@ export function WorkspaceTabs(): React.JSX.Element {
       <button
         type="button"
         onClick={() => void createWorktreeTab()}
-        className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-surface-hover hover:text-primary transition-colors"
+        className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted hover:bg-surface-hover hover:text-primary transition-colors"
         title={t('workspaceTabs.newIsolatedTabTitle')}
         aria-label={t('workspaceTabs.newIsolatedTabAriaLabel')}
       >
         <Plus size={15} />
       </button>
     </div>
-    {sessionTabs.length > 0 && (
-      <div className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b border-border/70 px-2">
-        <span className="mr-1 shrink-0 text-[10px] uppercase tracking-wide text-faint">{t('workspaceTabs.sessions')}</span>
-        {sessionTabs.map((runtime) => {
-          const session = sessionList.find((item) => runtime.sessionPath && pathsEqual(item.path, runtime.sessionPath))
-          const active = runtime.runtimeId === activeSessionRuntimeId || runtime.active
-          return (
-            <div
-              key={runtime.runtimeId}
-              onAuxClick={(event) => {
-                if (event.button !== 1) return
-                event.preventDefault()
-                void closeSessionTab(runtime.runtimeId)
-              }}
-              className={clsx(
-                'group flex min-w-0 max-w-[240px] shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[11px] transition-colors',
-                active ? 'bg-card text-primary' : 'text-muted hover:bg-highlight hover:text-secondary'
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  if (!runtime.sessionPath) return
-                  setCurrentView('chat')
-                  void switchSession(runtime.sessionPath, activeWorkspace?.path)
-                }}
-                className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-0.5 text-left"
-                title={runtime.sessionPath ?? undefined}
-                aria-current={active ? 'page' : undefined}
-              >
-                <SessionRuntimeIndicator runtime={runtime} />
-                <span className="truncate">
-                  {session ? getSessionTitle(session.name, session.sessionId, session.preview) : t('workspaceTabs.newSessionFallback')}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void closeSessionTab(runtime.runtimeId)}
-                className="shrink-0 rounded p-0.5 text-faint opacity-0 transition-all hover:bg-highlight-strong hover:text-primary group-hover:opacity-100"
-                title={t('workspaceTabs.closeSessionTab')}
-                aria-label={t('workspaceTabs.closeSessionTab')}
-              >
-                <X size={11} />
-              </button>
-            </div>
-          )
-        })}
-      </div>
-    )}
     </div>
   )
 }

@@ -517,12 +517,22 @@ export class WorkspaceManager {
   }
 
   /** Create an empty session runtime and make it active immediately. */
-  async createNewSessionRuntime(workspaceId: string): Promise<SessionRuntimeInfo> {
+  async createNewSessionRuntime(workspaceId: string, activate = true): Promise<SessionRuntimeInfo> {
     const workspace = this.workspaces.find((item) => item.id === workspaceId)
     if (!workspace) throw new Error(t('errors.workspace.notFound', { workspaceId }))
-    if (this.activeWorkspaceId !== workspaceId) await this.setActiveWorkspace(workspaceId)
+    if (activate && this.activeWorkspaceId !== workspaceId) await this.setActiveWorkspace(workspaceId)
     const entry = this.createSessionRuntime(workspaceId, null)
-    this.setActiveRuntime(workspaceId, entry.info.runtimeId)
+    if (activate) this.setActiveRuntime(workspaceId, entry.info.runtimeId)
+    return this.snapshotRuntime(entry)
+  }
+
+  /** Activate an already-open runtime by identity, including header-only tabs. */
+  async activateSessionRuntime(runtimeId: string): Promise<SessionRuntimeInfo> {
+    const entry = this.sessionRuntimes.get(runtimeId)
+    if (!entry) throw new Error(t('errors.session.runtimeNotFound', { runtimeId }))
+    if (this.activeWorkspaceId !== entry.info.workspaceId) await this.setActiveWorkspace(entry.info.workspaceId)
+    this.setActiveRuntime(entry.info.workspaceId, runtimeId)
+    this.emitSessionRuntime(entry)
     return this.snapshotRuntime(entry)
   }
 

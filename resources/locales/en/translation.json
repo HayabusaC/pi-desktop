@@ -25,6 +25,15 @@
       "downloadButton": "Download"
     }
   },
+  "browser": {
+    "address": "Address",
+    "addressPlaceholder": "Enter address",
+    "back": "Back",
+    "forward": "Forward",
+    "newTab": "New browser tab",
+    "reload": "Reload",
+    "stop": "Stop loading"
+  },
   "chat": {
     "attach": {
       "allFilesFilter": "All Files",
@@ -184,6 +193,7 @@
     "cut": "Cut",
     "delete": "Delete",
     "dismiss": "Dismiss",
+    "edit": "Edit",
     "export": "Export",
     "global": "Global",
     "hideSidebar": "Hide sidebar",
@@ -216,6 +226,55 @@
     "permissionMenu": {
       "title": "Permissions"
     }
+  },
+  "context": {
+    "actions": {
+      "compact20": "Keep last 20",
+      "compact50": "Keep last 50",
+      "forceFlush": "Force flush",
+      "status": "Context status"
+    },
+    "config": {
+      "project": "Project config",
+      "saved": "Configuration saved. Reload the extension to apply runtime changes.",
+      "user": "User config"
+    },
+    "dreamer": {
+      "disabled": "No scheduled Dreamer tasks were found",
+      "enabled": "Dreamer schedules are active",
+      "run": "Run Dreamer",
+      "title": "Dreamer status"
+    },
+    "empty": {
+      "cache": "No cache events are available.",
+      "dreamer": "No Dreamer schedule state is available.",
+      "dreamRuns": "No Dreamer runs are available.",
+      "historian": "No Historian runs are available.",
+      "logs": "No Magic Context logs are available.",
+      "memories": "No memories are available for this context store.",
+      "sessions": "No managed sessions are available."
+    },
+    "memory": {
+      "deleteMessage": "Delete this memory from the Magic Context store? This cannot be undone.",
+      "deleteTitle": "Delete memory"
+    },
+    "open": "Context",
+    "overview": {
+      "compartments": "Compartments",
+      "dreamRuns": "Dream runs"
+    },
+    "tabs": {
+      "cache": "Cache",
+      "config": "Config",
+      "dreamer": "Dreamer",
+      "historian": "Historian",
+      "logs": "Logs",
+      "memories": "Memories",
+      "overview": "Overview",
+      "sessions": "Sessions"
+    },
+    "title": "Magic Context",
+    "unavailable": "Magic Context is not active in the current session."
   },
   "contextMenu": {
     "addMessageToNotes": "Add Message to Notes",
@@ -1792,17 +1851,22 @@
       "subtitle": "{{phase}} · {{source}}"
     }
   },
+  "workspacePane": {
+    "closePane": "Close pane",
+    "closeTab": "Close tab",
+    "dropTab": "or drag a tab here",
+    "newConversation": "New conversation in this project",
+    "splitDown": "Split Down",
+    "splitRight": "Split Right"
+  },
   "workspaceTabs": {
-    "closeSessionTab": "Close session tab",
     "closeTabAriaLabel": "Close {{name}}",
     "closeTools": "Close tools",
     "newIsolatedTabAriaLabel": "New isolated Git tab",
     "newIsolatedTabTitle": "New isolated Git tab (requires a Git project)",
     "newSessionAriaLabel": "New session in this project",
-    "newSessionFallback": "New session",
     "newSessionTitle": "New session in this project (Ctrl/Cmd+N)",
     "removeWorkspaceAriaLabel": "Remove {{name}}",
-    "sessions": "Sessions",
     "tools": "Tools"
   }
 }

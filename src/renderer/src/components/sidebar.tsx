@@ -358,7 +358,7 @@ export function Sidebar(): React.JSX.Element {
               : t('sidebar.sessionRow.tooltipInactive', { title: labels.title })
           }
           className={clsx(
-            'flex w-full items-center gap-2 rounded px-2 py-1.5 pr-7 text-left text-sm transition-colors',
+            'flex w-full items-center gap-1.5 rounded px-2 py-1 pr-7 text-left text-xs transition-colors',
             nested && 'pl-2',
             isActive
               ? 'bg-card text-primary'
@@ -454,7 +454,7 @@ export function Sidebar(): React.JSX.Element {
       style={{ width: sidebarWidth }}
     >
       {/* Header */}
-      <div className="flex h-12 items-center justify-between border-b border-border px-3">
+      <div className="flex h-9 items-center justify-between border-b border-border px-2.5">
         <div className="flex items-center gap-2">
           <StatusPopover />
           {/* Compact Home replaces the duplicate Pi-activity popover: workspace
@@ -464,7 +464,7 @@ export function Sidebar(): React.JSX.Element {
             type="button"
             onClick={() => setCurrentView('home')}
             className={clsx(
-              'rounded p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus',
+              'rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus',
               currentView === 'home'
                 ? 'bg-card text-accent-fg'
                 : 'text-muted hover:bg-surface-hover hover:text-primary'
@@ -487,8 +487,8 @@ export function Sidebar(): React.JSX.Element {
       </div>
 
       {/* Project + primary action */}
-      <div className="border-b border-border pb-3">
-        <div className="flex items-center justify-between px-3 pt-3">
+      <div className="border-b border-border pb-2">
+        <div className="flex items-center justify-between px-2.5 pt-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{t('common.project')}</div>
           <button
             type="button"
@@ -501,12 +501,12 @@ export function Sidebar(): React.JSX.Element {
           </button>
         </div>
         <WorkspaceSwitcher onOpenProject={() => void openProject()} />
-        <div className="px-3">
+        <div className="px-2.5">
           <button
             type="button"
             onClick={() => void startNewSession()}
             disabled={!activeWorkspace}
-            className="group flex w-full items-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-white shadow-sm shadow-accent/20 transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
+            className="group flex w-full items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm shadow-accent/20 transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50"
             title={
               activeWorkspace
                 ? t('sidebar.newSessionButton.titleWithShortcut')
@@ -526,7 +526,7 @@ export function Sidebar(): React.JSX.Element {
       </div>
 
       {/* Navigation */}
-      <nav className="space-y-3 border-b border-border px-2 py-3">
+      <nav className="space-y-2 border-b border-border px-1.5 py-2">
         <div>
           <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{t('sidebar.nav.workspaceSection')}</div>
           <div className="space-y-0.5">
@@ -611,7 +611,7 @@ export function Sidebar(): React.JSX.Element {
       {/* Current session info */}
       {sessionState && (
         renamingWhere === 'current' ? (
-          <div className="mx-3 mt-2 rounded-md bg-surface p-3">
+          <div className="mx-2 mt-1.5 rounded-md bg-surface p-2">
             <div className="text-xs font-medium text-muted uppercase tracking-wider">{t('sidebar.currentSession.heading')}</div>
             <div className="mt-1.5 flex">{renderRenameInput()}</div>
             {sessionState.model && (
@@ -620,13 +620,13 @@ export function Sidebar(): React.JSX.Element {
             <div className="mt-1 text-xs text-dim">{t('sidebar.currentSession.messageCount', { count: sessionState.messageCount })}</div>
           </div>
         ) : (
-          <div className="group relative mx-3 mt-2">
+          <div className="group relative mx-2 mt-1.5">
             <button
               type="button"
               onClick={() => setCurrentView('chat')}
               onDoubleClick={() => startSessionRename('current')}
               onContextMenu={handleCurrentSessionRightClick}
-              className="w-full rounded-md bg-surface p-3 pr-9 text-left transition-colors hover:bg-surface-hover focus:outline-none focus:ring-1 focus:ring-border-strong"
+              className="w-full rounded-md bg-surface p-2 pr-8 text-left transition-colors hover:bg-surface-hover focus:outline-none focus:ring-1 focus:ring-border-strong"
               title={t('sidebar.currentSession.openTitle')}
             >
               <div className="text-xs font-medium text-muted uppercase tracking-wider">{t('sidebar.currentSession.heading')}</div>
@@ -657,7 +657,7 @@ export function Sidebar(): React.JSX.Element {
       )}
 
       {/* Recent sessions for the active project. Cross-project history stays in Sessions. */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-2">
         <div className="mb-1 flex items-center justify-between px-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
             {activeWorkspace
@@ -725,7 +725,7 @@ export function Sidebar(): React.JSX.Element {
       )}
 
       {/* Secondary tools stay available without competing with project/session work. */}
-      <div className="shrink-0 border-t border-border px-2 py-2">
+      <div className="shrink-0 border-t border-border px-1.5 py-1.5">
         <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">{t('sidebar.tools.sectionLabel')}</div>
         <div className="grid grid-cols-2 gap-0.5">
           <SidebarItem
@@ -874,7 +874,7 @@ function WorkspaceSwitcher({ onOpenProject }: { onOpenProject: () => void }): Re
   }
 
   return (
-    <div className="px-3 py-2">
+    <div className="px-2.5 py-1.5">
       {/* Current workspace */}
       {isRenaming ? (
         <div className="flex items-center gap-2 rounded-md bg-surface px-3 py-2">
@@ -903,7 +903,7 @@ function WorkspaceSwitcher({ onOpenProject }: { onOpenProject: () => void }): Re
           onDoubleClick={startRenaming}
           onContextMenu={handleWorkspaceContextMenu}
           title={t('sidebar.workspaceSwitcher.triggerTitle')}
-          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-primary hover:bg-surface-hover transition-colors"
+          className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-primary hover:bg-surface-hover transition-colors"
         >
           <div className="flex min-w-0 items-center gap-2 text-left">
             <Layers size={14} className="shrink-0" style={{ color: activeWorkspace?.color ?? '#6b7280' }} />
@@ -1048,7 +1048,7 @@ function SidebarItem({
       title={title}
       className={clsx(
         'flex w-full items-center gap-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus',
-        compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm',
+        compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-xs',
         active
           ? 'bg-card text-primary'
           : 'text-muted hover:bg-highlight hover:text-secondary'

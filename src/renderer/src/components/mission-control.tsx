@@ -98,8 +98,8 @@ export function MissionControl(): React.JSX.Element {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-5xl px-6 py-7">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div className="mx-auto max-w-6xl px-4 py-4">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
               <Inbox size={19} className="text-accent-fg" />
@@ -149,7 +149,7 @@ export function MissionControl(): React.JSX.Element {
                   : runtime.sessionId ?? t('missionControl.startingSession')
                 const canOpen = !!runtime.sessionPath && !!workspace
                 return (
-                  <div key={runtime.runtimeId} className="flex items-center gap-3 rounded-lg border border-border bg-surface/50 px-3 py-3">
+                  <div key={runtime.runtimeId} className="flex items-center gap-2 rounded-md border border-border bg-surface/50 px-3 py-2">
                     <SessionRuntimeIndicator runtime={runtime} />
                     {!runtime.activity && runtime.status === 'running' && (
                       <span

@@ -75,6 +75,14 @@ import type {
   McpServerInfo,
   McpServerActionRequest,
   McpServerActionResult,
+  MagicContextCapabilities,
+  MagicContextDashboardData,
+  MagicContextAction,
+  MagicContextActionResult,
+  MagicContextConfigFile,
+  BrowserTabState,
+  BrowserViewLayout,
+  BrowserSnapshot,
 } from '../shared/ipc-contracts'
 import type { ThemeFile } from '../shared/theme/theme-file'
 import { IPC_CHANNELS } from '../shared/ipc-contracts'
@@ -104,8 +112,10 @@ interface PiDesktopAPI {
   // Session management
   session: {
     createNew(): Promise<SessionRuntimeInfo>
+    createInWorkspace(workspaceId: string): Promise<SessionRuntimeInfo>
     launchTask(options: SessionLaunchTaskOptions): Promise<SessionRuntimeInfo>
     closeRuntime(runtimeId: string): Promise<SessionRuntimeCloseResult | null>
+    activateRuntime(runtimeId: string): Promise<SessionRuntimeInfo>
     switch(sessionPath: string, cwd?: string): Promise<SessionRuntimeInfo>
     listRuntimes(): Promise<SessionRuntimeInfo[]>
     fork(entryId?: string): Promise<unknown>
@@ -114,6 +124,10 @@ interface PiDesktopAPI {
     listAll(cwd?: string): Promise<SessionListItem[]>
     getState(): Promise<unknown>
     getMessages(): Promise<unknown>
+    getRuntimeMessages(runtimeId: string): Promise<unknown>
+    promptRuntime(runtimeId: string, message: string): Promise<unknown>
+    abortRuntime(runtimeId: string): Promise<unknown>
+    commandRuntime(runtimeId: string, command: Record<string, unknown>): Promise<unknown>
     getStats(): Promise<unknown>
     setName(name: string): Promise<unknown>
     exportHtml(outputPath?: string): Promise<unknown>
@@ -233,6 +247,16 @@ interface PiDesktopAPI {
     list(): Promise<McpServerInfo[]>
     action(request: McpServerActionRequest): Promise<McpServerActionResult>
   }
+  magicContext: {
+    capabilities(): Promise<MagicContextCapabilities>
+    data(): Promise<MagicContextDashboardData>
+    action(request: MagicContextAction): Promise<MagicContextActionResult>
+    compact(keep?: 20 | 50): Promise<MagicContextActionResult>
+    updateMemory(id: number, content: string): Promise<void>
+    deleteMemory(id: number): Promise<void>
+    readConfig(source: 'user' | 'project'): Promise<MagicContextConfigFile>
+    writeConfig(source: 'user' | 'project', content: string): Promise<void>
+  }
   tags: {
     get(sessionId: string): Promise<string[]>
     set(sessionId: string, tags: string[]): Promise<string[]>
@@ -330,6 +354,23 @@ interface PiDesktopAPI {
     onExit(callback: (event: TerminalExitEvent) => void): () => void
   }
 
+  browser: {
+    create(url?: string): Promise<BrowserTabState>
+    close(id: string): Promise<void>
+    list(): Promise<BrowserTabState[]>
+    navigate(id: string, url: string): Promise<BrowserTabState>
+    goBack(id: string): Promise<BrowserTabState>
+    goForward(id: string): Promise<BrowserTabState>
+    reload(id: string): Promise<void>
+    stop(id: string): Promise<void>
+    setLayout(layout: BrowserViewLayout[]): Promise<void>
+    snapshot(id: string): Promise<BrowserSnapshot>
+    screenshot(id: string): Promise<string>
+    click(id: string, target: { selector?: string; x?: number; y?: number }): Promise<void>
+    type(id: string, target: { selector?: string; text: string; submit?: boolean }): Promise<void>
+    evaluate(id: string, expression: string): Promise<unknown>
+  }
+
   // Extension UI responses
   ui: {
     respondSelect(id: string, value: string): void
@@ -351,12 +392,14 @@ interface PiDesktopAPI {
 
   // Event subscription
   onEvent(callback: (event: PiRpcEvent) => void): () => void
+  onSessionRuntimeEvent(callback: (data: import('../shared/ipc-contracts').SessionRuntimePiEvent) => void): () => void
   onPendingPrompts(callback: (counts: PendingPromptCounts) => void): () => void
   onWorkspaceActivity(callback: (map: WorkspaceActivityMap) => void): () => void
   onSessionRuntime(callback: (runtime: SessionRuntimeInfo) => void): () => void
   onActivateWorkspace(callback: (payload: WorkspaceActivationIntent) => void): () => void
   onFileChange(callback: (event: FileChangeEvent) => void): () => void
   onMenuAction(callback: (action: string) => void): () => void
+  onBrowserState(callback: (state: BrowserTabState) => void): () => void
 }
 
 // ─── Implementation ──────────────────────────────────────────────────────────
@@ -381,8 +424,10 @@ const api: PiDesktopAPI = {
 
   session: {
     createNew: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_NEW),
+    createInWorkspace: (workspaceId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_NEW_IN_WORKSPACE, workspaceId),
     launchTask: (options) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_LAUNCH_TASK, options),
     closeRuntime: (runtimeId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_CLOSE_RUNTIME, runtimeId),
+    activateRuntime: (runtimeId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_ACTIVATE_RUNTIME, runtimeId),
     switch: (sessionPath, cwd) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_SWITCH, sessionPath, cwd),
     listRuntimes: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_LIST_RUNTIMES),
     fork: (entryId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_FORK, entryId),
@@ -391,6 +436,10 @@ const api: PiDesktopAPI = {
     listAll: (cwd) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_LIST_ALL, cwd),
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_STATE),
     getMessages: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_MESSAGES),
+    getRuntimeMessages: (runtimeId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_RUNTIME_MESSAGES, runtimeId),
+    promptRuntime: (runtimeId, message) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_RUNTIME_PROMPT, runtimeId, message),
+    abortRuntime: (runtimeId) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_RUNTIME_ABORT, runtimeId),
+    commandRuntime: (runtimeId, command) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_RUNTIME_COMMAND, runtimeId, command),
     getStats: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_STATS),
     setName: (name) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_SET_NAME, name),
     exportHtml: (outputPath) => ipcRenderer.invoke(IPC_CHANNELS.SESSION_EXPORT_HTML, outputPath),
@@ -498,6 +547,16 @@ const api: PiDesktopAPI = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_SERVERS_LIST),
     action: (request) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SERVERS_ACTION, request),
   },
+  magicContext: {
+    capabilities: () => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_CAPABILITIES),
+    data: () => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_DATA),
+    action: (request) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_ACTION, request),
+    compact: (keep) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_COMPACT, keep),
+    updateMemory: (id, content) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_MEMORY_UPDATE, id, content),
+    deleteMemory: (id) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_MEMORY_DELETE, id),
+    readConfig: (source) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_CONFIG_READ, source),
+    writeConfig: (source, content) => ipcRenderer.invoke(IPC_CHANNELS.MAGIC_CONTEXT_CONFIG_WRITE, source, content),
+  },
   tags: {
     get: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.TAG_GET, sessionId),
     set: (sessionId, tags) => ipcRenderer.invoke(IPC_CHANNELS.TAG_SET, sessionId, tags),
@@ -585,6 +644,23 @@ const api: PiDesktopAPI = {
     },
   },
 
+  browser: {
+    create: (url) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_CREATE, url),
+    close: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_CLOSE, id),
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_LIST),
+    navigate: (id, url) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_NAVIGATE, id, url),
+    goBack: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_GO_BACK, id),
+    goForward: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_GO_FORWARD, id),
+    reload: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_RELOAD, id),
+    stop: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_STOP, id),
+    setLayout: (layout) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_SET_LAYOUT, layout),
+    snapshot: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_SNAPSHOT, id),
+    screenshot: (id) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_SCREENSHOT, id),
+    click: (id, target) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_CLICK, id, target),
+    type: (id, target) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_TYPE, id, target),
+    evaluate: (id, expression) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_EVALUATE, id, expression),
+  },
+
   ui: {
     respondSelect: (id, value) => ipcRenderer.invoke(IPC_CHANNELS.UI_SELECT_RESPONSE, id, value),
     respondConfirm: (id, confirmed) => ipcRenderer.invoke(IPC_CHANNELS.UI_CONFIRM_RESPONSE, id, confirmed),
@@ -661,6 +737,18 @@ const api: PiDesktopAPI = {
     return () => {
       for (const cleanup of handlers) cleanup()
     }
+  },
+
+  onSessionRuntimeEvent: (callback: (data: import('../shared/ipc-contracts').SessionRuntimePiEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: import('../shared/ipc-contracts').SessionRuntimePiEvent) => callback(data)
+    ipcRenderer.on(IPC_CHANNELS.EVENT_SESSION_RUNTIME_PI, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_SESSION_RUNTIME_PI, handler)
+  },
+
+  onBrowserState: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: BrowserTabState) => callback(state)
+    ipcRenderer.on(IPC_CHANNELS.EVENT_BROWSER_STATE, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_BROWSER_STATE, handler)
   },
 }
 

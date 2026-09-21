@@ -63,6 +63,9 @@ import type {
   SessionLaunchTaskOptions,
   SessionDeleteResult,
   ModelsFileInfo,
+  MagicContextCapabilities,
+  MagicContextDashboardData,
+  MagicContextAction,
 } from '../../shared/ipc-contracts'
 
 export type { DisplayAttachment, DisplayMessage } from './message-parsing'
@@ -295,7 +298,7 @@ interface AppState {
   // Chat side panel: which secondary view (file tree or diff) is open in
   // the chat workspace. Lifted into the store so it survives navigating
   // away from chat (e.g. into Settings) and back.
-  chatSidePanel: 'files' | 'diff' | null
+  chatSidePanel: 'files' | 'diff' | 'context' | null
   sidebarOpen: boolean
   terminalOpen: boolean
   reviewOpen: boolean
@@ -309,6 +312,10 @@ interface AppState {
   // view switches like settingsDraft. null = no pending edits for that scope.
   permissionRulesDrafts: Record<PermissionRulesScope, PermissionRule[] | null>
   commands: PiCommand[]
+  magicContextCapabilities: MagicContextCapabilities | null
+  magicContextData: MagicContextDashboardData | null
+  magicContextLoading: boolean
+  magicContextError: string | null
 
   // Extension UI
   // Blocking dialog slot (select/confirm/input/editor). Main retains every
@@ -452,6 +459,8 @@ interface AppActions {
   createNewSession: () => Promise<void>
   launchTask: (options: SessionLaunchTaskOptions) => Promise<boolean>
   closeSessionTab: (runtimeId: string) => Promise<void>
+  /** Make a pane's runtime own global chrome without stopping sibling panes. */
+  focusSessionRuntime: (runtimeId: string) => Promise<void>
   switchSession: (path: string, projectPath?: string) => Promise<void>
   /**
    * Open a session row from any surface (sidebar, session panel, quick
@@ -481,6 +490,9 @@ interface AppActions {
 
   // Context compaction
   compactContext: () => Promise<void>
+  refreshMagicContextCapabilities: () => Promise<void>
+  refreshMagicContextData: () => Promise<void>
+  runMagicContextAction: (action: MagicContextAction) => Promise<boolean>
 
   // UI
   setCurrentView: (view: AppState['currentView']) => void
@@ -926,6 +938,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   settingsDraft: {},
   permissionRulesDrafts: { global: null, workspace: null },
   commands: [],
+  magicContextCapabilities: null,
+  magicContextData: null,
+  magicContextLoading: false,
+  magicContextError: null,
 
   extensionUiRequest: null,
   extensionNotify: null,
@@ -1699,6 +1715,38 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
+  focusSessionRuntime: async (runtimeId) => {
+    if (get().activeSessionRuntimeId === runtimeId) return
+    const known = get().sessionRuntimes[runtimeId]
+    if (!known) return
+    const generation = ++sessionLoadGeneration
+    try {
+      const runtime = await window.piDesktop.session.activateRuntime(runtimeId)
+      if (generation !== sessionLoadGeneration) return
+      const workspace = get().workspaces.find((item) => item.id === runtime.workspaceId) ?? null
+      get().clearMessages()
+      set({
+        activeSessionRuntimeId: runtime.runtimeId,
+        activeWorkspace: workspace ?? get().activeWorkspace,
+        piStatus: runtime.status,
+        piPid: runtime.pid,
+        piEngine: runtime.engine ?? 'pi',
+        piError: runtime.error,
+        sessionLoading: runtime.status === 'running',
+        sessionState: null,
+        sessionStats: null,
+        providerQuota: null,
+        extensionUiRequest: null,
+      })
+      if (workspace) void window.piDesktop.ui.flushPendingPrompts(workspace.id)
+      if (runtime.status === 'running') await get().reloadActiveSession({ refreshList: false })
+    } catch (error) {
+      if (generation === sessionLoadGeneration) {
+        set({ sessionLoading: false, piError: error instanceof Error ? error.message : String(error) })
+      }
+    }
+  },
+
   refreshProviderQuota: async () => {
     const generation = ++providerQuotaRequestGeneration
     set({ providerQuota: null })
@@ -1865,13 +1913,54 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   compactContext: async () => {
     try {
-      await window.piDesktop.session.compact()
+      const result = await window.piDesktop.magicContext.compact(20)
+      if (!result.success) throw new Error(result.error ?? 'Context compact failed')
+      if (get().magicContextCapabilities?.magicContext) {
+        await get().refreshMagicContextData()
+      }
       // compaction_start/end events drive the chat system messages; refresh
       // state + stats so the context-usage figures update afterwards.
       get().refreshSessionState()
       get().refreshSessionStats()
-    } catch {
-      // Silent failure
+    } catch (error) {
+      set({ magicContextError: error instanceof Error ? error.message : String(error) })
+    }
+  },
+
+  refreshMagicContextCapabilities: async () => {
+    try {
+      const capabilities = await window.piDesktop.magicContext.capabilities()
+      set({
+        magicContextCapabilities: capabilities,
+        magicContextData: capabilities.magicContext ? get().magicContextData : null,
+        magicContextError: capabilities.error ?? null,
+        ...(capabilities.magicContext || get().chatSidePanel !== 'context' ? {} : { chatSidePanel: null }),
+      })
+    } catch (error) {
+      set({ magicContextCapabilities: null, magicContextData: null, magicContextError: error instanceof Error ? error.message : String(error) })
+    }
+  },
+
+  refreshMagicContextData: async () => {
+    if (!get().magicContextCapabilities?.ctxDashboardData) return
+    set({ magicContextLoading: true, magicContextError: null })
+    try {
+      set({ magicContextData: await window.piDesktop.magicContext.data(), magicContextLoading: false })
+    } catch (error) {
+      set({ magicContextLoading: false, magicContextError: error instanceof Error ? error.message : String(error) })
+    }
+  },
+
+  runMagicContextAction: async (action) => {
+    set({ magicContextError: null })
+    try {
+      const result = await window.piDesktop.magicContext.action(action)
+      if (!result.success) throw new Error(result.error ?? 'Magic Context action failed')
+      await get().refreshMagicContextData()
+      return true
+    } catch (error) {
+      set({ magicContextError: error instanceof Error ? error.message : String(error) })
+      return false
     }
   },
 
@@ -1914,10 +2003,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   requestChatScrollToBottom: () =>
     set((state) => ({ chatScrollBottomNonce: state.chatScrollBottomNonce + 1 })),
   setChatSidePanel: async (panel) => {
-    // Only opening the diff destroys the editor buffer: chat-panel renders the
-    // editor pane only while the side panel is not 'diff', so this unmounts a
-    // dirty FilePreview. Every other panel leaves the editor mounted.
-    if (panel === 'diff') {
+    // Diff and Context replace the editor pane, so guard unsaved edits before
+    // either panel can unmount FilePreview.
+    if (panel === 'diff' || panel === 'context') {
       if (!(await get().confirmDiscardEditorChanges())) return false
       set({ chatSidePanel: panel, editorDirty: false })
       return true
@@ -2009,6 +2097,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     } catch {
       set({ commands: [] })
     }
+    await get().refreshMagicContextCapabilities()
   },
 
   // ─── Event Handling ───────────────────────────────────────────────────
@@ -2215,6 +2304,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       case 'available_commands_update':
         set({ commands: normalizePiCommands((event as { commands?: unknown }).commands) })
+        void get().refreshMagicContextCapabilities()
         break
 
       case 'command_output': {
@@ -2315,6 +2405,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         if (statusEvent.status === 'running') {
           get().loadCommands()
           get().loadSkills()
+        } else {
+          void get().refreshMagicContextCapabilities()
         }
         break
       }
@@ -2623,10 +2715,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
-  // Instant navigation: committing the project pointer never spawns a
-  // process. A workspace with a live runtime shows that session right away
-  // (the process is already up — only history hydrates); anything else shows
-  // the empty new-session view immediately. Pi starts lazily on first prompt.
+  // Project navigation restores that project's active runtime immediately.
+  // Each workspace owns its own runtime mapping, so starting a stopped target
+  // does not stop or replace conversations still running in other projects.
   activateWorkspace: async (workspaceId, options) => {
     if (get().activeWorkspace?.id === workspaceId) return true
     if (!options?.skipDirtyConfirm && !(await get().confirmDiscardEditorChanges())) return false
@@ -2657,8 +2748,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       }))
       void window.piDesktop.ui.flushPendingPrompts(workspace.id)
       scheduleSessionListRefresh(get)
-      if (live && options?.awaitingSession !== true) {
-        void get().reloadActiveSession({ refreshList: false })
+      if (!live) await get().startPi()
+      if (get().piStatus === 'running' && options?.awaitingSession !== true) {
+        await get().reloadActiveSession({ refreshList: false })
         // A turn may already be running here (that is what the sidebar dot
         // advertised). Arm the mid-turn attach so the next turn boundary
         // backfills the prefix the stream buffers never saw.
@@ -2729,6 +2821,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         get().loadWorkspaces(),
       ])
       set({ piStatus: status.status, piStartupPhase: status.startupPhase ?? null, piPid: status.pid, piError: status.error, piEngine: status.engine ?? 'pi' })
+      if (status.status === 'stopped' || status.status === 'error') await get().startPi()
       // Session list refresh only — navigation never spawns a process.
       scheduleSessionListRefresh(get)
       if (!skipSessionLoad && get().piStatus === 'running') {

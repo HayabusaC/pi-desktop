@@ -810,17 +810,17 @@ test('openFolderAsWorkspace switches when the dropped folder is an existing othe
   assert.equal(useAppStore.getState().currentView, 'chat')
   assert.equal(
     useAppStore.getState().piStatus,
-    'stopped',
-    'an idle target shows the empty view instantly — no process is spawned'
+    'running',
+    'the selected project restores its conversation runtime immediately'
   )
   assert.equal(
     calls.includes('pi.start'),
-    false,
-    'navigation must not spawn a process'
+    true,
+    'project navigation must start a missing runtime instead of showing OMP stopped'
   )
 })
 
-test('activating an idle workspace shows the empty view without starting Pi', async () => {
+test('activating an idle workspace starts its conversation runtime', async () => {
   workspaceListResult = [WORKSPACE_ONE, WORKSPACE_TWO]
   activeWorkspaceResult = WORKSPACE_ONE
   useAppStore.setState({
@@ -834,15 +834,14 @@ test('activating an idle workspace shows the empty view without starting Pi', as
 
   assert.equal(ok, true)
   const state = useAppStore.getState()
-  assert.equal(calls.includes('pi.start'), false, 'selection must stay process-free')
+  assert.equal(calls.includes('pi.start'), true, 'selection restores the target project runtime')
   assert.equal(state.activeWorkspace?.id, WORKSPACE_TWO.id)
   assert.deepEqual(state.messages, [])
-  assert.equal(state.sessionLoading, false, 'no spinner without a process')
-  assert.equal(state.sessionState, null)
-  assert.equal(state.piStatus, 'stopped')
+  assert.equal(state.sessionLoading, false)
+  assert.equal(state.piStatus, 'running')
 })
 
-test('the first prompt lazy-starts an idle workspace', async () => {
+test('the first prompt uses the runtime already restored by project activation', async () => {
   workspaceListResult = [WORKSPACE_ONE, WORKSPACE_TWO]
   activeWorkspaceResult = WORKSPACE_ONE
   useAppStore.setState({
@@ -854,13 +853,8 @@ test('the first prompt lazy-starts an idle workspace', async () => {
 
   await useAppStore.getState().sendPrompt('ship it')
 
-  const startAt = calls.indexOf('pi.start')
-  assert.notEqual(startAt, -1, 'the first send must spawn the agent')
-  assert.equal(
-    calls.findIndex((c) => c.startsWith('prompt:')),
-    startAt + 1,
-    'the prompt goes out only after startup completes'
-  )
+  assert.equal(calls.includes('pi.start'), false, 'activation already started the agent')
+  assert.notEqual(calls.findIndex((c) => c.startsWith('prompt:')), -1)
   assert.equal(useAppStore.getState().piStatus, 'running')
 })
 
@@ -881,7 +875,7 @@ function runtimeIn(workspace: Workspace, overrides: Partial<SessionRuntimeInfo>)
   }
 }
 
-test('a stopped active runtime reports stopped even with a live sibling', async () => {
+test('a stopped active runtime is restarted instead of borrowing a live sibling', async () => {
   // Two tabs in the same workspace: the one main resolves for prompts is
   // stopped, a background tab is still running. Reading "any runtime" here
   // reported running, so the first prompt skipped its lazy start and hit a
@@ -907,12 +901,12 @@ test('a stopped active runtime reports stopped even with a live sibling', async 
 
   assert.equal(ok, true)
   const state = useAppStore.getState()
-  assert.equal(state.piStatus, 'stopped', 'a background sibling must not mask the stopped active runtime')
-  assert.equal(state.sessionLoading, false, 'nothing hydrates while the active runtime is down')
-  assert.equal(calls.includes('getMessages'), false)
+  assert.equal(state.piStatus, 'running')
+  assert.equal(calls.includes('pi.start'), true, 'the active runtime itself must be restarted')
+  assert.equal(calls.includes('getMessages'), true)
 })
 
-test('the first prompt lazy-starts a workspace whose active runtime is stopped', async () => {
+test('the first prompt does not restart a stopped runtime already restored on activation', async () => {
   workspaceListResult = [WORKSPACE_ONE, WORKSPACE_TWO]
   activeWorkspaceResult = WORKSPACE_ONE
   useAppStore.setState({
@@ -934,13 +928,8 @@ test('the first prompt lazy-starts a workspace whose active runtime is stopped',
 
   await useAppStore.getState().sendPrompt('ship it')
 
-  const startAt = calls.indexOf('pi.start')
-  assert.notEqual(startAt, -1, 'the prompt must not be sent into a stopped manager')
-  assert.equal(
-    calls.findIndex((c) => c.startsWith('prompt:')),
-    startAt + 1,
-    'the prompt goes out only after startup completes'
-  )
+  assert.equal(calls.includes('pi.start'), false, 'activation already restarted the active runtime')
+  assert.notEqual(calls.findIndex((c) => c.startsWith('prompt:')), -1)
 })
 
 test('openFolderAsWorkspace skips switch when the dropped folder is already active', async () => {

@@ -236,6 +236,63 @@ export function registerSessionHandlers(ctx: IpcContext): void {
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.SESSION_NEW_IN_WORKSPACE, async (_event, workspaceId: unknown): Promise<SessionRuntimeInfo> => {
+    if (!isString(workspaceId)) throw new Error('workspaceId must be a string')
+    return workspaceManager.createNewSessionRuntime(workspaceId, false)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_GET_RUNTIME_MESSAGES, async (_event, runtimeId: unknown) => {
+    if (!isString(runtimeId)) throw new Error('runtimeId must be a string')
+    const runtime = workspaceManager.getSessionRuntimes().find((item) => item.runtimeId === runtimeId)
+    if (!runtime) throw new Error(t('errors.session.runtimeNotFound', { runtimeId }))
+    if (runtime.status !== 'running') {
+      await startRuntime(runtime, runtime.sessionPath ?? undefined)
+    }
+    const response = await workspaceManager.sendCommandToSessionRuntime(runtimeId, { type: 'get_messages' })
+    return trimGetMessagesResponse(response)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_RUNTIME_PROMPT, async (_event, runtimeId: unknown, message: unknown) => {
+    if (!isString(runtimeId) || !isString(message) || !message.trim()) {
+      throw new Error('runtimeId and a non-empty message are required')
+    }
+    const runtime = workspaceManager.getSessionRuntime(runtimeId)
+    if (!runtime) throw new Error(t('errors.session.runtimeNotFound', { runtimeId }))
+    if (runtime.status !== 'running') await startRuntime(runtime, runtime.sessionPath ?? undefined)
+    return workspaceManager.sendCommandToSessionRuntime(runtimeId, { type: 'prompt', message })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_RUNTIME_ABORT, async (_event, runtimeId: unknown) => {
+    if (!isString(runtimeId)) throw new Error('runtimeId must be a string')
+    return workspaceManager.sendCommandToSessionRuntime(runtimeId, { type: 'abort' })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_RUNTIME_COMMAND, async (_event, runtimeId: unknown, command: unknown) => {
+    if (!isString(runtimeId) || !command || typeof command !== 'object' || Array.isArray(command)) {
+      throw new Error('runtimeId and command object are required')
+    }
+    const payload = command as Record<string, unknown>
+    const type = payload.type
+    const allowed = new Set([
+      'get_state', 'get_messages', 'get_session_stats', 'get_available_models',
+      'get_available_commands', 'prompt', 'steer', 'follow_up', 'abort',
+      'set_model', 'cycle_model', 'set_thinking_level', 'cycle_thinking_level',
+      'compact', 'set_session_name',
+    ])
+    if (!isString(type) || !allowed.has(type)) throw new Error('Unsupported runtime command')
+    const runtime = workspaceManager.getSessionRuntime(runtimeId)
+    if (!runtime) throw new Error(t('errors.session.runtimeNotFound', { runtimeId }))
+    if (runtime.status !== 'running' && type !== 'abort') await startRuntime(runtime, runtime.sessionPath ?? undefined)
+    return workspaceManager.sendCommandToSessionRuntime(runtimeId, payload)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SESSION_ACTIVATE_RUNTIME, async (_event, runtimeId: unknown): Promise<SessionRuntimeInfo> => {
+    if (!isString(runtimeId)) throw new Error('runtimeId must be a string')
+    const runtime = await workspaceManager.activateSessionRuntime(runtimeId)
+    if (runtime.status !== 'running') void startRuntime(runtime, runtime.sessionPath ?? undefined).catch(() => undefined)
+    return runtime
+  })
+
   ipcMain.handle(IPC_CHANNELS.SESSION_SET_NAME, async (_event, name: unknown) => {
     if (!isString(name)) throw new Error('name must be a string')
     return getActivePi().sendCommand({ type: 'set_session_name', name })

@@ -17,6 +17,9 @@ const OMP_READ_ONLY_TOOLS = 'read,grep,glob'
 const PERMISSIONS_EXTENSION_PATH = app.isPackaged
   ? join(process.resourcesPath, 'resources', 'pi-desktop-permissions.ts')
   : join(app.getAppPath(), 'resources', 'pi-desktop-permissions.ts')
+const BROWSER_EXTENSION_PATH = app.isPackaged
+  ? join(process.resourcesPath, 'resources', 'pi-desktop-browser.ts')
+  : join(app.getAppPath(), 'resources', 'pi-desktop-browser.ts')
 
 const LOCALES_DIR_NAME = 'locales'
 // The language files ship next to the extension (resources/ is extraResources).
@@ -88,6 +91,9 @@ export function applyPermissionModeToStartOptions(
   if (existsSync(PERMISSIONS_EXTENSION_PATH)) {
     args.push('-e', PERMISSIONS_EXTENSION_PATH)
   }
+  if (existsSync(BROWSER_EXTENSION_PATH) && process.env.PI_DESKTOP_BROWSER_RPC_URL && process.env.PI_DESKTOP_BROWSER_RPC_TOKEN) {
+    args.push('-e', BROWSER_EXTENSION_PATH)
+  }
 
   return {
     ...options,
@@ -111,6 +117,10 @@ export function applyPermissionModeToStartOptions(
       // trust explicitly (see workspace-trust.ts).
       PI_DESKTOP_WORKSPACE_TRUSTED:
         options.cwd && workspaceTrustStore.isTrusted(options.cwd) ? '1' : '0',
+      // Loopback-only authenticated control plane for the bundled browser tool.
+      // This is distinct from OMP's browser-session OAuth/SSO implementation.
+      PI_DESKTOP_BROWSER_RPC_URL: process.env.PI_DESKTOP_BROWSER_RPC_URL ?? '',
+      PI_DESKTOP_BROWSER_RPC_TOKEN: process.env.PI_DESKTOP_BROWSER_RPC_TOKEN ?? '',
     },
   }
 }

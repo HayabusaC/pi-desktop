@@ -46,6 +46,10 @@ test('resolveSidebarWidth uses the saved width when no drag is active', () => {
   assert.equal(resolveSidebarWidth(null, 300), 300)
 })
 
+test('resolveSidebarWidth migrates the previous seeded default to the compact default', () => {
+  assert.equal(resolveSidebarWidth(null, 320), DEFAULT_SIDEBAR_WIDTH)
+})
+
 test('resolveSidebarWidth falls back to the default before settings load', () => {
   // The sidebar renders before the settings IPC round-trip resolves.
   assert.equal(resolveSidebarWidth(null, undefined), DEFAULT_SIDEBAR_WIDTH)
