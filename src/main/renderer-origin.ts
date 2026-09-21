@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { pathToFileURL } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 
 /**
  * The only file the main window is allowed to load/navigate to in production,
@@ -31,5 +31,14 @@ export function isTrustedRendererUrl(
       return false
     }
   }
-  return parsed.protocol === 'file:' && parsed.pathname === pathToFileURL(opts.rendererIndexPath).pathname
+  if (parsed.protocol !== 'file:') return false
+  try {
+    const actualPath = fileURLToPath(parsed)
+    const expectedPath = fileURLToPath(pathToFileURL(opts.rendererIndexPath))
+    return process.platform === 'win32'
+      ? actualPath.toLowerCase() === expectedPath.toLowerCase()
+      : actualPath === expectedPath
+  } catch {
+    return false
+  }
 }

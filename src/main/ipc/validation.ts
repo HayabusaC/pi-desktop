@@ -6,7 +6,15 @@ import { isTrustedRendererUrl, RENDERER_INDEX_PATH } from '../renderer-origin'
 // preview <webview> guests have no preload, so nothing else should be able to
 // reach these channels — this makes that guarantee explicit at the boundary.
 export function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  const url = event.senderFrame?.url
+  // Electron can omit senderFrame after a renderer-side async boundary (for
+  // example, invoking an action from a menu after a confirmation dialog).
+  // The owning WebContents still retains the committed top-level URL. Only
+  // fall back when frame metadata is absent; an explicitly untrusted child
+  // frame must never inherit trust from its top-level WebContents.
+  const senderFrame = event.senderFrame
+  const frameUrl = senderFrame?.url
+  const mayUseTopLevelUrl = senderFrame == null || senderFrame.parent === null
+  const url = frameUrl || (mayUseTopLevelUrl ? event.sender.getURL() : '')
   if (
     !url ||
     !isTrustedRendererUrl(url, {
