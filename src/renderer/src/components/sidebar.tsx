@@ -26,6 +26,7 @@ import {
   Stethoscope,
   Pencil,
   Workflow as WorkflowIcon,
+  Cpu,
 } from 'lucide-react'
 import { useMemo, useState, useRef } from 'react'
 import { StatusPopover } from './status-popover'
@@ -41,7 +42,7 @@ import { clampSidebarWidth, resolveSidebarWidth } from '../../../shared/sidebar-
 import type { SessionListItem } from '../../../shared/ipc-contracts'
 
 /** Views reachable from the sidebar's Tools group. */
-type ToolView = 'packages' | 'mcp' | 'notes' | 'skills' | 'diagnostics' | 'settings'
+type ToolView = 'packages' | 'mcp' | 'models' | 'notes' | 'skills' | 'diagnostics' | 'settings'
 
 /** Cap how many workspace groups appear in the Recent list. */
 const MAX_RECENT_GROUPS = 12
@@ -740,6 +741,13 @@ export function Sidebar(): React.JSX.Element {
             label="MCP"
             active={toolViewShowing('mcp')}
             onClick={() => openToolView('mcp')}
+          />
+          <SidebarItem
+            compact
+            icon={<Cpu size={13} />}
+            label={t('sidebar.tools.models')}
+            active={toolViewShowing('models')}
+            onClick={() => openToolView('models')}
           />
           <SidebarItem
             compact

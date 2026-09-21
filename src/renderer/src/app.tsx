@@ -7,6 +7,7 @@ import { SessionPanel } from './components/session-panel'
 import { Timeline } from './components/timeline'
 import { PackageBrowser } from './components/package-browser'
 import { McpBrowser } from './components/mcp-browser'
+import { ModelBrowser } from './components/model-browser'
 import { DiffViewer } from './components/diff-viewer'
 import { HomeScreen } from './components/home-screen'
 import { NotesPanel } from './components/notes-panel'
@@ -171,6 +172,7 @@ export function App(): React.JSX.Element {
                 {currentView === 'timeline' && <Timeline />}
                 {currentView === 'packages' && <PackageBrowser />}
                 {currentView === 'mcp' && <McpBrowser />}
+                {currentView === 'models' && <ModelBrowser />}
                 {currentView === 'diff' && <DiffViewer />}
                 {currentView === 'notes' && <NotesPanel />}
                 {currentView === 'skills' && <SkillsPanel />}
