@@ -281,6 +281,7 @@ function TreeNodeComponent({
   const expanded = expandedPaths.has(node.relativePath)
   const status = gitStatus[node.relativePath]
   const isSelected = selectedFile === node.relativePath
+  const rowPaddingLeft = depth * 16 + 6
 
   if (node.type === 'directory') {
     return (
@@ -289,24 +290,33 @@ function TreeNodeComponent({
           type="button"
           onClick={() => onToggleDirectory(node.relativePath)}
           aria-expanded={expanded}
-          className="flex h-6 w-full items-center gap-1 rounded-sm pr-2 text-[13px] text-muted transition-colors hover:bg-surface-hover hover:text-secondary"
-          style={{ paddingLeft: `${depth * 14 + 6}px` }}
+          className="flex h-6 w-full items-center gap-1.5 rounded-sm pr-2 text-[13px] text-muted transition-colors hover:bg-surface-hover hover:text-secondary"
+          style={{ paddingLeft: `${rowPaddingLeft}px` }}
         >
           {expanded ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
           <span className="truncate">{node.name}</span>
         </button>
-        {expanded && node.children?.map((child) => (
-          <TreeNodeComponent
-            key={child.relativePath}
-            node={child}
-            gitStatus={gitStatus}
-            selectedFile={selectedFile}
-            onFileClick={onFileClick}
-            expandedPaths={expandedPaths}
-            onToggleDirectory={onToggleDirectory}
-            depth={depth + 1}
-          />
-        ))}
+        {expanded && node.children && node.children.length > 0 && (
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 w-px bg-border"
+              style={{ left: `${rowPaddingLeft + 7}px` }}
+            />
+            {node.children.map((child) => (
+              <TreeNodeComponent
+                key={child.relativePath}
+                node={child}
+                gitStatus={gitStatus}
+                selectedFile={selectedFile}
+                onFileClick={onFileClick}
+                expandedPaths={expandedPaths}
+                onToggleDirectory={onToggleDirectory}
+                depth={depth + 1}
+              />
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -320,7 +330,7 @@ function TreeNodeComponent({
           ? 'bg-accent-bg text-accent-fg'
           : 'text-muted hover:bg-surface-hover/50 hover:text-secondary'
       )}
-      style={{ paddingLeft: `${depth * 14 + 22}px` }}
+      style={{ paddingLeft: `${rowPaddingLeft}px` }}
     >
       <FileTypeIcon kind={fileIconKind(node.name)} />
       <span className="truncate">{node.name}</span>
