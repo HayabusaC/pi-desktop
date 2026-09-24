@@ -271,10 +271,33 @@
       "logs": "Logs",
       "memories": "Memories",
       "overview": "Overview",
-      "sessions": "Sessions"
+      "sessions": "Sessions",
+      "usage": "Usage"
     },
     "title": "Magic Context",
-    "unavailable": "Magic Context is not active in the current session."
+    "unavailable": "Magic Context is not active in the current session.",
+    "usage": {
+      "currentModel": "Current model",
+      "embedding": "Embedding",
+      "embeddingSummary": "Requests {{requests}} · Input {{input}} · Dimensions {{dimensions}}",
+      "estimatedCost": "Estimated Cost",
+      "multipleRates": "Multiple historical rates",
+      "noEmbeddings": "No embedding usage yet.",
+      "noRuns": "No model calls in this range.",
+      "pricePerMillion": "USD / 1M tokens",
+      "priceSummary": "USD / 1M tokens: Input {{input}} · Output {{output}} · Cache read {{cacheRead}} · Cache write {{cacheWrite}}",
+      "pricingUnavailable": "Pricing unavailable",
+      "range": {
+        "30d": "30d",
+        "7d": "7d",
+        "all": "All",
+        "today": "Today"
+      },
+      "runs": "runs",
+      "tokenSummary": "Input {{input}} · Output {{output}} · Cache read {{cacheRead}} · Cache write {{cacheWrite}} · Reasoning {{reasoning}} · Total {{total}}",
+      "unspecifiedTask": "Unspecified task",
+      "zeroApiCost": "$0 API cost"
+    }
   },
   "contextMenu": {
     "addMessageToNotes": "Add Message to Notes",

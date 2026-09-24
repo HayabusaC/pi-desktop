@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Brain, Database, History, Loader2, RefreshCw, Save, Sparkles, Trash2 } from 'lucide-react'
 import { useAppStore } from '../store'
 import type { MagicContextConfigFile, MagicContextMemory } from '../../../shared/ipc-contracts'
+import { ContextUsage } from './context-usage'
 
-type Tab = 'overview' | 'memories' | 'sessions' | 'historian' | 'dreamer' | 'cache' | 'config' | 'logs'
+type Tab = 'overview' | 'usage' | 'memories' | 'sessions' | 'historian' | 'dreamer' | 'cache' | 'config' | 'logs'
 
 export function ContextPanel({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { t } = useTranslation()
@@ -20,7 +21,7 @@ export function ContextPanel({ onClose }: { onClose: () => void }): React.JSX.El
 
   if (!caps?.magicContext) return <div className="flex flex-1 items-center justify-center px-3 text-xs text-dim">{t('context.unavailable')}</div>
 
-  const tabs: Tab[] = ['overview', 'memories', 'sessions', 'historian', 'dreamer', 'cache', 'config', 'logs']
+  const tabs: Tab[] = ['overview', 'usage', 'memories', 'sessions', 'historian', 'dreamer', 'cache', 'config', 'logs']
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app text-xs">
       <header className="flex min-w-0 items-start justify-between gap-2 border-b border-border px-2.5 py-1.5">
@@ -42,6 +43,7 @@ export function ContextPanel({ onClose }: { onClose: () => void }): React.JSX.El
         {loading && !data ? <div className="flex items-center gap-1.5 text-xs text-dim"><Loader2 className="animate-spin" size={14} />{t('common.loading')}</div> : (
           <>
             {tab === 'overview' && <Overview data={data} />}
+            {tab === 'usage' && <ContextUsage runs={data?.usage?.runs ?? []} embeddings={data?.usage?.embeddings ?? []} />}
             {tab === 'memories' && <Memories memories={data?.memories ?? []} onRefresh={refresh} />}
             {tab === 'sessions' && <Records rows={data?.sessions ?? []} empty={t('context.empty.sessions')} />}
             {tab === 'historian' && <Records rows={data?.historian ?? []} empty={t('context.empty.historian')} />}

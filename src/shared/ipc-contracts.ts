@@ -277,6 +277,30 @@ export interface MagicContextDreamRun {
   tasks_json: unknown
 }
 
+export interface MagicContextUsageRun {
+  id: number
+  timestamp: number
+  component: 'historian' | 'dreamer'
+  task: string | null
+  provider: string | null
+  model: string | null
+  usage: { input: number; output: number; cacheRead: number; cacheWrite: number; reasoning: number | null; total: number | null }
+  pricingSnapshot: unknown | null
+  estimatedCost: number | null
+}
+
+export interface MagicContextEmbeddingUsage {
+  id: number
+  timestamp: number
+  provider: string
+  model: string
+  requests: number
+  inputTokens: number | null
+  dimensions: number | null
+  pricePerMillionInputTokens: number | null
+  estimatedCost: number | null
+}
+
 export interface MagicContextDashboardData {
   loadedAt: number
   overview: { memories: number; sessions: number; compartments: number; dreamRuns: number }
@@ -284,6 +308,7 @@ export interface MagicContextDashboardData {
   sessions: MagicContextSession[]
   historian: Array<Record<string, unknown>>
   dreamer: { enabled: boolean; schedules: Array<Record<string, unknown>>; runs: MagicContextDreamRun[] }
+  usage: { runs: MagicContextUsageRun[]; embeddings: MagicContextEmbeddingUsage[] }
   cache: Array<Record<string, unknown>>
   logs: Array<{ timestamp: string; level: string | null; message: string; raw: string }>
 }

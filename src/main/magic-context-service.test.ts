@@ -64,6 +64,55 @@ test('discovers explicit storage and reads dashboard data without migrating', ()
   }
 })
 
+test('reads frozen Magic Context usage and tolerates older invocation rows', () => {
+  const { root, dbPath } = fixture()
+  try {
+    const db = new DatabaseSync(dbPath)
+    db.exec(`CREATE TABLE subagent_invocations (
+      id INTEGER PRIMARY KEY, started_at INTEGER, subagent TEXT, task TEXT,
+      provider_id TEXT, model_id TEXT, input_tokens INTEGER, output_tokens INTEGER,
+      cache_read_tokens INTEGER, cache_write_tokens INTEGER, reasoning_tokens INTEGER,
+      total_tokens INTEGER, pricing_snapshot TEXT, estimated_cost REAL);
+      CREATE TABLE embedding_usage (id INTEGER PRIMARY KEY, timestamp INTEGER,
+      provider_id TEXT, model_id TEXT, requests INTEGER, input_tokens INTEGER,
+      dimensions INTEGER, price_per_million_input_tokens REAL, estimated_cost REAL);
+      INSERT INTO subagent_invocations VALUES
+        (1, 100, 'dreamer', 'verify', 'provider-a', 'model-1', 10, 5, 2, 1, 3, 18,
+         '[{"provider":"provider-a","model":"model-1","pricing":{"input":1,"output":2,"cacheRead":0.1,"cacheWrite":1.2}}]', 0.0000212),
+        (2, 200, 'historian', NULL, 'provider-b', 'model-2', 4, 2, 0, 0, NULL, NULL, NULL, NULL);
+      INSERT INTO embedding_usage VALUES (1, 150, 'openai-compatible', 'embed-1', 1, 250, 768, 0.2, 0.00005);`)
+    db.close()
+    const data = loadMagicContextDashboardData(dbPath)
+    assert.equal(data.usage.runs.length, 2)
+    assert.equal(data.usage.runs[1].task, 'verify')
+    assert.equal(data.usage.runs[1].estimatedCost, 0.0000212)
+    assert.deepEqual(data.usage.runs[1].usage, {
+      input: 10, output: 5, cacheRead: 2, cacheWrite: 1, reasoning: 3, total: 18,
+    })
+    assert.equal(data.usage.runs[0].estimatedCost, null)
+    assert.equal(data.usage.embeddings[0].estimatedCost, 0.00005)
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test('older invocation schema leaves price and detailed usage unavailable', () => {
+  const { root, dbPath } = fixture()
+  try {
+    const db = new DatabaseSync(dbPath)
+    db.exec(`CREATE TABLE subagent_invocations (
+      id INTEGER PRIMARY KEY, started_at INTEGER, subagent TEXT, task TEXT,
+      provider_id TEXT, model_id TEXT, input_tokens INTEGER, output_tokens INTEGER,
+      cache_read_tokens INTEGER, cache_write_tokens INTEGER);
+      INSERT INTO subagent_invocations VALUES
+      (1, 100, 'historian', NULL, 'provider', 'model', 10, 3, 0, 0);`)
+    db.close()
+    const [run] = loadMagicContextDashboardData(dbPath).usage.runs
+    assert.equal(run.estimatedCost, null)
+    assert.equal(run.pricingSnapshot, null)
+    assert.equal(run.usage.reasoning, null)
+    assert.equal(run.usage.total, null)
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
 test('edits and deletes memories with official mutation-log semantics', () => {
   const { root, dbPath } = fixture()
   try {

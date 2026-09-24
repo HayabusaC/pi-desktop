@@ -8,6 +8,8 @@ import type {
   MagicContextConfigFile,
   MagicContextDashboardData,
   MagicContextMemory,
+  MagicContextUsageRun,
+  MagicContextEmbeddingUsage,
 } from '../shared/ipc-contracts'
 
 const DEBUG = process.env.PI_DESKTOP_MAGIC_CONTEXT_DEBUG === '1'
@@ -123,6 +125,43 @@ export function loadMagicContextDashboardData(dbPath: string): MagicContextDashb
       : tableExists(db, 'transform_decisions') ? 'transform_decisions'
         : tableExists(db, 'transform_events') ? 'transform_events' : null
     const cache = cacheTable ? rows<Record<string, unknown>>(db, `SELECT * FROM ${cacheTable} ORDER BY rowid DESC LIMIT 300`) : []
+    const invocationCols = columns(db, 'subagent_invocations')
+    const invocationColumn = (name: string): string => invocationCols.has(name) ? name : 'NULL'
+    const usageRuns = tableExists(db, 'subagent_invocations') ? rows<Record<string, unknown>>(db, `
+      SELECT id, started_at AS timestamp, subagent, ${invocationColumn('component')} AS component,
+        task, provider_id, model_id,
+        input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+        ${invocationColumn('reasoning_tokens')} AS reasoning_tokens,
+        ${invocationColumn('total_tokens')} AS total_tokens,
+        ${invocationColumn('pricing_snapshot')} AS pricing_snapshot,
+        ${invocationColumn('estimated_cost')} AS estimated_cost
+      FROM subagent_invocations
+      WHERE subagent IN ('historian', 'historian_editor', 'dreamer')
+      ORDER BY started_at DESC`).map((row): MagicContextUsageRun => ({
+        id: Number(row.id), timestamp: Number(row.timestamp),
+        component: row.component === 'dreamer' || row.subagent === 'dreamer' ? 'dreamer' : 'historian',
+        task: typeof row.task === 'string' ? row.task : null,
+        provider: typeof row.provider_id === 'string' ? row.provider_id : null,
+        model: typeof row.model_id === 'string' ? row.model_id : null,
+        usage: {
+          input: Number(row.input_tokens ?? 0), output: Number(row.output_tokens ?? 0),
+          cacheRead: Number(row.cache_read_tokens ?? 0), cacheWrite: Number(row.cache_write_tokens ?? 0),
+          reasoning: row.reasoning_tokens == null ? null : Number(row.reasoning_tokens),
+          total: row.total_tokens == null ? null : Number(row.total_tokens),
+        },
+        pricingSnapshot: typeof row.pricing_snapshot === 'string' ? safeJson(row.pricing_snapshot) : null,
+        estimatedCost: row.estimated_cost == null ? null : Number(row.estimated_cost),
+      })) : []
+    const embeddingUsage = tableExists(db, 'embedding_usage') ? rows<Record<string, unknown>>(db,
+      'SELECT * FROM embedding_usage ORDER BY timestamp DESC').map((row): MagicContextEmbeddingUsage => ({
+        id: Number(row.id), timestamp: Number(row.timestamp),
+        provider: String(row.provider_id), model: String(row.model_id),
+        requests: Number(row.requests ?? 1),
+        inputTokens: row.input_tokens == null ? null : Number(row.input_tokens),
+        dimensions: row.dimensions == null ? null : Number(row.dimensions),
+        pricePerMillionInputTokens: row.price_per_million_input_tokens == null ? null : Number(row.price_per_million_input_tokens),
+        estimatedCost: row.estimated_cost == null ? null : Number(row.estimated_cost),
+      })) : []
     const compartments = count(db, 'compartments')
     const data: MagicContextDashboardData = {
       loadedAt: Date.now(),
@@ -131,6 +170,7 @@ export function loadMagicContextDashboardData(dbPath: string): MagicContextDashb
       sessions: sessions as unknown as MagicContextDashboardData['sessions'],
       historian,
       dreamer: { enabled: schedules.length > 0, schedules, runs: runs as unknown as MagicContextDashboardData['dreamer']['runs'] },
+      usage: { runs: usageRuns, embeddings: embeddingUsage },
       cache,
       logs: loadLogs(dirname(dbPath)),
     }

@@ -271,10 +271,33 @@
       "logs": "日志",
       "memories": "记忆",
       "overview": "概览",
-      "sessions": "会话"
+      "sessions": "会话",
+      "usage": "用量"
     },
     "title": "Magic Context",
-    "unavailable": "当前会话未启用 Magic Context。"
+    "unavailable": "当前会话未启用 Magic Context。",
+    "usage": {
+      "currentModel": "当前模型",
+      "embedding": "向量嵌入",
+      "embeddingSummary": "请求 {{requests}} · 输入 {{input}} · 维度 {{dimensions}}",
+      "estimatedCost": "预估费用",
+      "multipleRates": "历史单价不一致",
+      "noEmbeddings": "暂无向量嵌入用量。",
+      "noRuns": "所选范围内没有模型调用。",
+      "pricePerMillion": "美元 / 百万 token",
+      "priceSummary": "美元 / 百万 token：输入 {{input}} · 输出 {{output}} · 缓存读取 {{cacheRead}} · 缓存写入 {{cacheWrite}}",
+      "pricingUnavailable": "价格不可用",
+      "range": {
+        "30d": "30 天",
+        "7d": "7 天",
+        "all": "全部",
+        "today": "今天"
+      },
+      "runs": "次运行",
+      "tokenSummary": "输入 {{input}} · 输出 {{output}} · 缓存读取 {{cacheRead}} · 缓存写入 {{cacheWrite}} · 推理 {{reasoning}} · 总量 {{total}}",
+      "unspecifiedTask": "未指定任务",
+      "zeroApiCost": "$0 API 费用"
+    }
   },
   "contextMenu": {
     "addMessageToNotes": "将消息添加到笔记",
